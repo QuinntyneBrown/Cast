@@ -6,8 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `cast` is a working CLI that scaffolds initial PlantUML sequence diagrams. The `generate`
 command turns command-line participants and messages into a `@startuml … @enduml` skeleton; the
-`kinds` command lists the participant kinds. The design follows SOLID with
-`Microsoft.Extensions.DependencyInjection` and a one-command-per-file layout. Solution: `Cast.sln`.
+`kinds` command lists the participant kinds; the `ng` command inspects an Angular `.ts` file and
+renders a narrated diagram of how Angular injects that consumer's dependencies. The design follows
+SOLID with `Microsoft.Extensions.DependencyInjection` and a one-command-per-file layout. Solution:
+`Cast.sln`.
 
 ## Commands
 
@@ -18,6 +20,7 @@ build must stay warning-clean.
 ```pwsh
 dotnet build Cast.sln                                         # build all projects
 dotnet run --project src/Cast.Cli -- generate -p actor:User -p OS   # run the CLI
+dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # diagram an Angular service's DI
 dotnet test Cast.sln                                          # run all tests
 ```
 
@@ -37,14 +40,19 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
 - `src/Cast.Cli/Hosting/` — `ServiceCollectionExtensions.AddCast` (the single DI registration
   point), `RootCommandFactory` (assembles the root command from every registered `ICliCommand`),
   and `ExitCode`.
-- `src/Cast.Cli/Commands/` — one `ICliCommand` per file (`GenerateCommand`, `ListKindsCommand`).
-  A command maps parsed options to a `ScaffoldRequest` and delegates to `IScaffoldService`; no
-  `System.CommandLine` type leaks into the core.
+- `src/Cast.Cli/Commands/` — one `ICliCommand` per file (`GenerateCommand`, `ListKindsCommand`,
+  `NgCommand`). A command maps parsed options to a request record and delegates to an orchestrator
+  service; no `System.CommandLine` type leaks into the core.
 - `src/Cast.Cli/Services/` — focused, interface-backed services: kind catalog, participant and
   message parsers, sample-flow generator, renderer (`ISequenceDiagramRenderer`), writer
-  (`IDiagramWriter`), and the `IScaffoldService` orchestrator.
+  (`IDiagramWriter`), and the `IScaffoldService` orchestrator. The `ng` command adds its own set:
+  `IAngularServiceParser` (a comment/string-aware scanner that extracts a consumer and its injected
+  dependencies — no Node sidecar), `IAngularDiagramRenderer` (the narrated DI diagram),
+  `ISourceFileReader` (the read-side I/O boundary, mirroring `IDiagramWriter`), and the
+  `IAngularDiagramService` orchestrator.
 - `src/Cast.Cli/Models/` — immutable records (`Participant`, `Message`, `SequenceDiagram`,
-  `ScaffoldRequest`, `ParticipantKind`).
+  `ScaffoldRequest`, `ParticipantKind`; plus `AngularService`, `AngularDependency`,
+  `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command).
 - `src/Cast.Cli/Diagnostics/` — `DiagramFormatException` for user-facing input errors.
 
 Conventions: the diagram goes to **stdout**, logs go to **stderr**. Adding a command means adding

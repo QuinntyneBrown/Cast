@@ -13,13 +13,14 @@ public sealed class CompositionRootTests
     {
         using ServiceProvider provider = new ServiceCollection().AddCast().BuildServiceProvider();
 
-        // Resolving the orchestrator forces the whole graph (parsers, renderer, writer) to resolve.
+        // Resolving the orchestrators forces the whole graph (parsers, renderer, writer) to resolve.
         Assert.NotNull(provider.GetRequiredService<IScaffoldService>());
+        Assert.NotNull(provider.GetRequiredService<IAngularDiagramService>());
         Assert.NotNull(provider.GetRequiredService<RootCommandFactory>());
     }
 
     [Fact]
-    public void RootCommandFactory_AttachesBothSubcommands()
+    public void RootCommandFactory_AttachesAllSubcommands()
     {
         using ServiceProvider provider = new ServiceCollection().AddCast().BuildServiceProvider();
 
@@ -28,5 +29,6 @@ public sealed class CompositionRootTests
 
         Assert.Contains("generate", names);
         Assert.Contains("kinds", names);
+        Assert.Contains("ng", names);
     }
 }

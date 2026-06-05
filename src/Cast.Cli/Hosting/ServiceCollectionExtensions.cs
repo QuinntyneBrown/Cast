@@ -27,9 +27,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDiagramWriter>(_ => new FileSystemDiagramWriter());
         services.AddSingleton<IScaffoldService, ScaffoldService>();
 
+        // Angular DI inspection (the `ng` command): read a .ts file, extract its DI graph, render.
+        services.AddSingleton<ISourceFileReader, FileSystemSourceReader>();
+        services.AddSingleton<IAngularServiceParser, AngularServiceParser>();
+        services.AddSingleton<IAngularDiagramRenderer, PlantUmlAngularDiagramRenderer>();
+        services.AddSingleton<IAngularDiagramService, AngularDiagramService>();
+
         // Commands — every ICliCommand is discovered by RootCommandFactory.
         services.AddSingleton<ICliCommand, GenerateCommand>();
         services.AddSingleton<ICliCommand, ListKindsCommand>();
+        services.AddSingleton<ICliCommand, NgCommand>();
 
         services.AddSingleton<RootCommandFactory>();
 
