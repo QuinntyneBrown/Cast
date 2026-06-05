@@ -7,9 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `cast` is a working CLI that scaffolds initial PlantUML sequence diagrams. The `generate`
 command turns command-line participants and messages into a `@startuml … @enduml` skeleton; the
 `kinds` command lists the participant kinds; the `ng` command inspects an Angular `.ts` file and
-renders a narrated diagram of how Angular injects that consumer's dependencies. The design follows
-SOLID with `Microsoft.Extensions.DependencyInjection` and a one-command-per-file layout. Solution:
-`Cast.sln`.
+renders a narrated diagram of how Angular injects dependencies into any `inject()`-using construct
+(service, component, directive, pipe, interceptor, guard, resolver, or exported function), writing a
+`.puml` beside the source by default (`--stdout` prints instead). The design follows SOLID with
+`Microsoft.Extensions.DependencyInjection` and a one-command-per-file layout. Solution: `Cast.sln`.
 
 ## Commands
 
@@ -20,7 +21,7 @@ build must stay warning-clean.
 ```pwsh
 dotnet build Cast.sln                                         # build all projects
 dotnet run --project src/Cast.Cli -- generate -p actor:User -p OS   # run the CLI
-dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # diagram an Angular service's DI
+dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # writes foo.service.puml beside it
 dotnet test Cast.sln                                          # run all tests
 ```
 

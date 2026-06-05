@@ -66,7 +66,7 @@ public sealed class NgCommandTests
     }
 
     [Fact]
-    public async Task Invoke_OnlyService_LeavesOptionalsAtDefaults()
+    public async Task Invoke_OnlyService_DefaultsOutputToPumlBesideSource()
     {
         var fake = new CapturingAngularDiagramService();
 
@@ -74,8 +74,52 @@ public sealed class NgCommandTests
 
         AngularDiagramRequest request = Assert.IsType<AngularDiagramRequest>(fake.Captured);
         Assert.Null(request.Title);
-        Assert.Null(request.OutputPath);
+        Assert.Equal("a.service.puml", request.OutputPath);
         Assert.False(request.Force);
+    }
+
+    [Theory]
+    [InlineData("foo.service.ts", "foo.service.puml")]
+    [InlineData("src/app/foo.component.ts", "src/app/foo.component.puml")]
+    [InlineData("auth.interceptor.ts", "auth.interceptor.puml")]
+    [InlineData("bar.ts", "bar.puml")]
+    public async Task Invoke_DefaultOutput_ReplacesTsExtensionWithPuml(string servicePath, string expectedOutput)
+    {
+        var fake = new CapturingAngularDiagramService();
+
+        await Invoke(fake, "-s", servicePath);
+
+        Assert.Equal(expectedOutput, Assert.IsType<AngularDiagramRequest>(fake.Captured).OutputPath);
+    }
+
+    [Fact]
+    public async Task Invoke_ExplicitOutput_OverridesDefault()
+    {
+        var fake = new CapturingAngularDiagramService();
+
+        await Invoke(fake, "-s", "a.service.ts", "-o", "custom.puml");
+
+        Assert.Equal("custom.puml", Assert.IsType<AngularDiagramRequest>(fake.Captured).OutputPath);
+    }
+
+    [Fact]
+    public async Task Invoke_Stdout_LeavesOutputPathNull()
+    {
+        var fake = new CapturingAngularDiagramService();
+
+        await Invoke(fake, "-s", "a.service.ts", "--stdout");
+
+        Assert.Null(Assert.IsType<AngularDiagramRequest>(fake.Captured).OutputPath);
+    }
+
+    [Fact]
+    public async Task Invoke_FileAlias_IsAccepted()
+    {
+        var fake = new CapturingAngularDiagramService();
+
+        await Invoke(fake, "--file", "a.service.ts");
+
+        Assert.Equal("a.service.ts", Assert.IsType<AngularDiagramRequest>(fake.Captured).ServicePath);
     }
 
     [Theory]

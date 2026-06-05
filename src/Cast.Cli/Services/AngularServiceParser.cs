@@ -58,20 +58,27 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
 
         try
         {
-            ClassConsumer? cls = SelectClass(code);
-            if (cls is not null)
+            ClassConsumer? selected = SelectClass(code);
+
+            // A class carrying a DI decorator (@Injectable/@Component/@Directive/@Pipe) is the
+            // primary consumer and wins outright — in Angular only a decorated class actually
+            // participates in DI. Any other class (a DTO, or even one merely *named* like a service
+            // but missing its decorator) is a fallback, tried AFTER functional consumers, so a real
+            // injecting function in the same file is not shadowed by it.
+            if (selected is ClassConsumer cls && cls.Decorator is not null)
             {
-                return ParseClass(source, code, cls.Value, localTokens);
+                return ParseClass(source, code, cls, localTokens);
             }
 
-            Match constMatch = ArrowConst().Match(code);
-            if (constMatch.Success)
+            AngularService? functional = TryParseFunctionalConsumer(code, localTokens);
+            if (functional is not null)
             {
-                AngularService? functional = TryParseFunctional(code, constMatch, localTokens);
-                if (functional is not null)
-                {
-                    return functional;
-                }
+                return functional;
+            }
+
+            if (selected is ClassConsumer fallback)
+            {
+                return ParseClass(source, code, fallback, localTokens);
             }
         }
         catch (RegexMatchTimeoutException)
@@ -81,8 +88,9 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
 
         throw Fail(
             fileName,
-            "no Angular service, component, or functional provider (interceptor/guard/resolver) was found. " +
-            "Point --service at a file that exports an @Injectable class or a function such as 'export const xInterceptor: HttpInterceptorFn = ...'.");
+            "no Angular construct that uses dependency injection was found. Point --service at a file that exports " +
+            "an @Injectable/@Component/@Directive/@Pipe class, a functional provider " +
+            "(e.g. 'export const xInterceptor: HttpInterceptorFn = ...'), or a function that calls inject(...).");
     }
 
     // ----- consumer selection --------------------------------------------------------------
@@ -178,22 +186,45 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
         return new AngularService(cls.Name, kind, IsFunctional: false, isSingleton, providedIn, dependencies);
     }
 
-    private static AngularService? TryParseFunctional(string code, Match constMatch, HashSet<string> localTokens)
+    /// <summary>
+    /// Tries the functional-consumer shapes in order: an exported arrow function (a functional
+    /// provider such as an interceptor/guard/resolver) and then an exported <c>function</c>
+    /// declaration. Returns the first that is a genuine DI consumer.
+    /// </summary>
+    private static AngularService? TryParseFunctionalConsumer(string code, HashSet<string> localTokens)
+    {
+        Match arrow = ArrowConst().Match(code);
+        if (arrow.Success)
+        {
+            AngularService? fn = TryParseArrowFunction(code, arrow, localTokens);
+            if (fn is not null)
+            {
+                return fn;
+            }
+        }
+
+        // Try every exported function declaration in turn (a file may have helper functions before
+        // the one that actually injects), returning the first that is a genuine DI consumer.
+        foreach (Match declaration in FunctionDeclaration().Matches(code))
+        {
+            AngularService? fn = TryParseFunctionDeclaration(code, declaration, localTokens);
+            if (fn is not null)
+            {
+                return fn;
+            }
+        }
+
+        return null;
+    }
+
+    private static AngularService? TryParseArrowFunction(string code, Match constMatch, HashSet<string> localTokens)
     {
         string name = constMatch.Groups["name"].Value;
         string type = constMatch.Groups["type"].Value;
 
-        var dependencies = new List<AngularDependency>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-
-        // A functional provider pulls dependencies via inject() while it runs, so every inject() in
-        // its body counts (no depth restriction as for classes).
-        foreach (Match call in InjectCall().Matches(code))
-        {
-            string id = call.Groups["id"].Value;
-            bool optional = OptionalOption().IsMatch(call.Groups["rest"].Value);
-            Add(dependencies, seen, new AngularDependency(id, ClassifyDependency(id, forceToken: false, localTokens), optional));
-        }
+        // An arrow function may be expression-bodied (no { } block), so its inject() calls are
+        // collected from the whole sanitised file; such files realistically export one function.
+        List<AngularDependency> dependencies = CollectInjectCalls(code, localTokens);
 
         // Treat the arrow function as a DI consumer only when it is a recognised functional-DI type
         // or it actually injects something — otherwise it is just an exported function.
@@ -204,6 +235,56 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
         }
 
         return new AngularService(name, kind, IsFunctional: true, IsSingleton: false, ProvidedIn: null, dependencies);
+    }
+
+    /// <summary>
+    /// Parses an exported <c>function</c> declaration that runs in an injection context (a factory,
+    /// an <c>APP_INITIALIZER</c>, a functional guard/resolver written as a declaration, …). Its
+    /// <c>inject()</c> calls are read from its own body, so other functions in the file do not bleed
+    /// in. A plain function that injects nothing and has no functional-DI name is not a consumer.
+    /// </summary>
+    private static AngularService? TryParseFunctionDeclaration(string code, Match declaration, HashSet<string> localTokens)
+    {
+        string name = declaration.Groups["name"].Value;
+
+        int paramOpen = code.IndexOf('(', declaration.Index);
+        if (paramOpen < 0)
+        {
+            return null;
+        }
+
+        (_, int paramEnd) = ExtractBalancedRange(code, paramOpen, '(', ')');
+        (int bodyStart, int bodyEnd) = ExtractFunctionBody(code, paramEnd + 1);
+        if (bodyEnd <= bodyStart)
+        {
+            return null;
+        }
+
+        List<AngularDependency> dependencies = CollectInjectCalls(code[bodyStart..bodyEnd], localTokens);
+
+        ConsumerKind kind = ClassifyFunctional(type: string.Empty, name);
+        if (kind == ConsumerKind.Class && dependencies.Count == 0)
+        {
+            return null;
+        }
+
+        return new AngularService(name, kind, IsFunctional: true, IsSingleton: false, ProvidedIn: null, dependencies);
+    }
+
+    /// <summary>Collects de-duplicated <c>inject(X)</c> dependencies from a region of sanitised code.</summary>
+    private static List<AngularDependency> CollectInjectCalls(string region, HashSet<string> localTokens)
+    {
+        var dependencies = new List<AngularDependency>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (Match call in InjectCall().Matches(region))
+        {
+            string id = call.Groups["id"].Value;
+            bool optional = OptionalOption().IsMatch(call.Groups["rest"].Value);
+            Add(dependencies, seen, new AngularDependency(id, ClassifyDependency(id, forceToken: false, localTokens), optional));
+        }
+
+        return dependencies;
     }
 
     /// <summary>Parses constructor parameters, honouring <c>@Inject</c> (incl. dotted and string tokens) and <c>@Optional</c>.</summary>
@@ -541,6 +622,58 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
         return open < 0 ? (fromIndex, fromIndex) : ExtractBalancedRange(code, open, '{', '}');
     }
 
+    /// <summary>
+    /// Finds a function's body brace range starting just after its parameter list, skipping an
+    /// optional return-type annotation first. A named/generic/array return type contains no
+    /// top-level <c>{</c>, so the body is found directly; an object-literal return type
+    /// (<c>): { … } { body }</c>) is balance-skipped so it is not mistaken for the body.
+    /// </summary>
+    private static (int Start, int End) ExtractFunctionBody(string code, int afterParams)
+    {
+        int i = SkipWhitespace(code, afterParams);
+        if (i < code.Length && code[i] == ':')
+        {
+            i = SkipReturnType(code, i + 1);
+        }
+
+        return ExtractBraceRange(code, i);
+    }
+
+    /// <summary>
+    /// Advances past a return-type annotation that begins with one or more object-literal segments
+    /// (e.g. <c>{ a: number }</c>, or <c>{ a } &amp; { b }</c>), so the following brace is the body.
+    /// Named/generic/array types (no leading <c>{</c>) are left for <see cref="ExtractBraceRange"/>.
+    /// </summary>
+    private static int SkipReturnType(string code, int from)
+    {
+        int i = SkipWhitespace(code, from);
+        while (i < code.Length && code[i] == '{')
+        {
+            (_, int close) = ExtractBalancedRange(code, i, '{', '}');
+            i = SkipWhitespace(code, close + 1);
+            if (i < code.Length && (code[i] is '|' or '&'))
+            {
+                i = SkipWhitespace(code, i + 1);
+                continue;
+            }
+
+            break;
+        }
+
+        return i;
+    }
+
+    private static int SkipWhitespace(string code, int from)
+    {
+        int i = from;
+        while (i < code.Length && char.IsWhiteSpace(code[i]))
+        {
+            i++;
+        }
+
+        return i;
+    }
+
     /// <summary>Returns the [start, end) content range between the delimiter at <paramref name="openIndex"/> and its match.</summary>
     private static (int Start, int End) ExtractBalancedRange(string code, int openIndex, char open, char close)
     {
@@ -642,6 +775,12 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
     // quickly instead of backtracking catastrophically.
     [GeneratedRegex(@"\bexport\s+const\s+(?<name>[A-Za-z_$][\w$]*)\s*(?::\s*(?<type>[A-Za-z_$][\w$]*)(?:<[^>\n]{0,200}>)?(?:\[\])?\s*)?=\s*(?:async\s*)?(?:<[^>\n]{0,200}>\s*)?\(", RegexOptions.None, 2000)]
     private static partial Regex ArrowConst();
+
+    // Exported function declaration: `export function name(`, optionally `default`/`async` and a
+    // bounded generic parameter list. The match ends at the parameter '(' so the body is located by
+    // brace balancing from there.
+    [GeneratedRegex(@"\bexport\s+(?:default\s+)?(?:async\s+)?function\s+(?<name>[A-Za-z_$][\w$]*)\s*(?:<[^>\n]{0,200}>\s*)?\(", RegexOptions.None, 2000)]
+    private static partial Regex FunctionDeclaration();
 
     [GeneratedRegex(@"\binject\s*(?:<[^()]{0,400}>\s*)?\(\s*(?<id>[A-Za-z_$][\w$]*)(?<rest>[^)]*)\)", RegexOptions.None, 2000)]
     private static partial Regex InjectCall();

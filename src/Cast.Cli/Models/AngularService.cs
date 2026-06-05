@@ -11,9 +11,10 @@ namespace Cast.Cli.Models;
 /// <param name="Name">The consumer's declared name (class name or exported const name).</param>
 /// <param name="Kind">The consumer kind, used only to pick friendly diagram wording.</param>
 /// <param name="IsFunctional">
-/// <see langword="true"/> for a functional provider (an exported arrow function such as an
-/// interceptor or guard), which <em>pulls</em> its dependencies via <c>inject()</c> while it runs;
-/// <see langword="false"/> for a class, which Angular <em>constructs</em> with its dependencies.
+/// <see langword="true"/> for a functional provider — an exported arrow function or <c>function</c>
+/// declaration (an interceptor, guard, resolver, factory, …) that <em>pulls</em> its dependencies
+/// via <c>inject()</c> while it runs; <see langword="false"/> for a class, which Angular
+/// <em>constructs</em> with its dependencies.
 /// </param>
 /// <param name="IsSingleton">
 /// <see langword="true"/> when the consumer is provided as an application-wide singleton

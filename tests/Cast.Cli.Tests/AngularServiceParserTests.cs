@@ -447,4 +447,236 @@ public sealed class AngularServiceParserTests
     {
         Assert.Throws<DiagramFormatException>(() => Parse(new string('a', 2_000_001)));
     }
+
+    // ----- any inject()-using construct (functions, components, …) -------------------------
+
+    [Fact]
+    public void Parse_ExportedFunctionDeclaration_WithInject_IsFunctionalConsumer()
+    {
+        const string source = """
+            import { inject } from '@angular/core';
+            import { HttpClient } from '@angular/common/http';
+
+            export function loadRemoteConfig() {
+              const http = inject(HttpClient);
+              return http.get('/config');
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("loadRemoteConfig", service.Name);
+        Assert.True(service.IsFunctional);
+        Assert.Equal(["HttpClient"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_AsyncFunctionDeclaration_WithTokenInject_IsCaptured()
+    {
+        const string source = """
+            import { inject } from '@angular/core';
+            import { APP_CONFIG } from './tokens';
+
+            export async function initialiseApp() {
+              const config = inject(APP_CONFIG);
+              return config.ready;
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("initialiseApp", service.Name);
+        Assert.True(service.IsFunctional);
+        AngularDependency dep = Assert.Single(service.Dependencies);
+        Assert.Equal("APP_CONFIG", dep.Name);
+        Assert.Equal(DependencyKind.Token, dep.Kind);
+    }
+
+    [Fact]
+    public void Parse_FunctionDeclarationGuard_KindIsGuard()
+    {
+        const string source = """
+            import { inject } from '@angular/core';
+            import { AuthStore } from './auth-store';
+
+            export function authGuard() {
+              const store = inject(AuthStore);
+              return store.isAuthenticated();
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal(ConsumerKind.Guard, service.Kind);
+        Assert.True(service.IsFunctional);
+        Assert.Equal(["AuthStore"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_FunctionDeclarationWithoutInject_IsNotConsumer()
+    {
+        const string source = """
+            export function add(a: number, b: number): number {
+              return a + b;
+            }
+            """;
+
+        Assert.Throws<DiagramFormatException>(() => Parse(source));
+    }
+
+    [Fact]
+    public void Parse_OnlyInjectingFunctionAmongPlainFunctions_PicksTheInjectingOne()
+    {
+        const string source = """
+            import { inject } from '@angular/core';
+            import { HttpClient } from '@angular/common/http';
+
+            export function helperA(x: number): number { return x + 1; }
+
+            export function buildClient() {
+              const http = inject(HttpClient);
+              return http;
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("buildClient", service.Name);
+        Assert.Equal(["HttpClient"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_ComponentWithInject_IsComponentKind()
+    {
+        const string source = """
+            import { Component, inject } from '@angular/core';
+            import { UserService } from './user.service';
+
+            @Component({ selector: 'app-profile', template: '<p>{{ name }}</p>' })
+            export class ProfilePage {
+              private readonly users = inject(UserService);
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("ProfilePage", service.Name);
+        Assert.Equal(ConsumerKind.Component, service.Kind);
+        Assert.False(service.IsFunctional);
+        Assert.Equal(["UserService"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_DirectiveWithInject_IsDirectiveKind()
+    {
+        const string source = """
+            import { Directive, inject } from '@angular/core';
+            import { ElementRef } from '@angular/core';
+
+            @Directive({ selector: '[appHighlight]' })
+            export class HighlightThing {
+              private readonly el = inject(ElementRef);
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal(ConsumerKind.Directive, service.Kind);
+        Assert.Equal(["ElementRef"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_DtoClassPlusInjectingFunction_PrefersTheFunction()
+    {
+        // A plain (non-DI) class must not shadow a function that actually participates in DI.
+        const string source = """
+            import { inject } from '@angular/core';
+            import { HttpClient } from '@angular/common/http';
+
+            export class UserDto {
+              id!: string;
+              name!: string;
+            }
+
+            export function provideUserClient() {
+              const http = inject(HttpClient);
+              return http;
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("provideUserClient", service.Name);
+        Assert.True(service.IsFunctional);
+        Assert.Equal(["HttpClient"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_FunctionDeclarationWithObjectReturnType_StillFindsInject()
+    {
+        // An inline object-literal return type must not be mistaken for the function body.
+        const string source = """
+            import { inject } from '@angular/core';
+            import { HttpClient } from '@angular/common/http';
+
+            export function buildConfig(): { name: string } {
+              const http = inject(HttpClient);
+              return { name: 'x' };
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("buildConfig", service.Name);
+        Assert.True(service.IsFunctional);
+        Assert.Equal(["HttpClient"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_UndecoratedSuffixedClassPlusInjectingFunction_PrefersTheFunction()
+    {
+        // A class merely named like a service but missing @Injectable does not participate in
+        // Angular DI, so a real injecting function in the same file must win.
+        const string source = """
+            import { HttpInterceptorFn } from '@angular/common/http';
+            import { inject } from '@angular/core';
+            import { AuthStore } from './auth-store';
+
+            export class LoggingService {
+              log(message: string): void {}
+            }
+
+            export const authInterceptor: HttpInterceptorFn = (req, next) => {
+              const auth = inject(AuthStore);
+              return next(req);
+            };
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("authInterceptor", service.Name);
+        Assert.Equal(ConsumerKind.Interceptor, service.Kind);
+        Assert.True(service.IsFunctional);
+        Assert.Equal(["AuthStore"], service.Dependencies.Select(d => d.Name));
+    }
+
+    [Fact]
+    public void Parse_LoneUndecoratedClassWithInject_StillParsedViaFallback()
+    {
+        // With no functional consumer present, an undecorated class is still the subject.
+        const string source = """
+            import { inject } from '@angular/core';
+            import { HttpClient } from '@angular/common/http';
+
+            export class PlainService {
+              private readonly http = inject(HttpClient);
+            }
+            """;
+
+        AngularService service = Parse(source);
+
+        Assert.Equal("PlainService", service.Name);
+        Assert.False(service.IsFunctional);
+        Assert.Equal(["HttpClient"], service.Dependencies.Select(d => d.Name));
+    }
 }

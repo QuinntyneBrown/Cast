@@ -138,19 +138,25 @@ Supported kinds are `participant`, `actor`, `boundary`, `control`, `entity`, `da
 ### `ng`
 
 Inspects an Angular `.ts` file and emits a PlantUML sequence diagram explaining how Angular's
-dependency injector supplies that consumer's dependencies. It recognises both idiomatic DI shapes:
-the `inject(X)` function (in class fields and in functional interceptors/guards/resolvers) and
-classic constructor injection (including `@Inject(TOKEN)` and `@Optional()`). Symbols written in
-`SCREAMING_CASE` or injected via `@Inject` are treated as `InjectionToken`s; PascalCase symbols such
-as `HttpClient` or `Router` are treated as classes the injector constructs. Parsing is done in pure
-.NET — no Node runtime is required.
+dependency injector supplies that consumer's dependencies. The consumer can be **any construct that
+uses `inject(...)`** — an `@Injectable` service, an `@Component`/`@Directive`/`@Pipe`, a functional
+interceptor/guard/resolver, or an exported function (a factory or initializer). It recognises both
+idiomatic DI shapes: the `inject(X)` function (in class fields, functional providers, and function
+declarations) and classic constructor injection (including `@Inject(TOKEN)` and `@Optional()`).
+Symbols written in `SCREAMING_CASE` or injected via `@Inject` are treated as `InjectionToken`s;
+PascalCase symbols such as `HttpClient` or `Router` are treated as classes the injector constructs.
+Parsing is done in pure .NET — no Node runtime is required.
 
 | Option | Description |
 | --- | --- |
-| `-s, --service <file>` | Required. Path to the Angular `.ts` file to inspect. |
+| `-s, --service, --file <file>` | Required. Path to the Angular `.ts` file to inspect. |
 | `-t, --title <text>` | Override the generated diagram title. |
-| `-o, --output <file>` | Write to a file instead of standard output. |
+| `-o, --output <file>` | Write to this file. Defaults to the source path with a `.puml` extension (`foo.service.ts` → `foo.service.puml`). |
+| `--stdout` | Write to standard output instead of a file (takes precedence over `--output`). |
 | `--force` | Overwrite an existing output file. |
+
+By default the diagram is written next to the source as a `.puml` file; pass `--stdout` to print it
+to standard output instead.
 
 ```pwsh
 dotnet run --project src/Cast.Cli -- ng `
