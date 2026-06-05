@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Cast.Cli.Models;
 using Cast.Cli.Services;
 
@@ -93,7 +92,7 @@ public sealed class PlantUmlSequenceRendererTests
             [new Message("A", "B", "->")]);
 
         string[] lines = LinesOf(CreateRenderer().Render(diagram));
-        string messageLine = Assert.Single(lines.Where(l => l.StartsWith("A -> B")));
+        string messageLine = Assert.Single(lines, l => l.StartsWith("A -> B"));
 
         Assert.Equal("A -> B", messageLine);
     }

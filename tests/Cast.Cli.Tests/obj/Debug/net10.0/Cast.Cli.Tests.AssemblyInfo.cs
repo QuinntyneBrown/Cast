@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Cast.Cli.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+18d423b88f7fda66dc9e20ef535914c8ead1850d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b7c6785265cb9a53f3bca0cce4904881cde82398")]
 [assembly: System.Reflection.AssemblyProductAttribute("Cast.Cli.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Cast.Cli.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
