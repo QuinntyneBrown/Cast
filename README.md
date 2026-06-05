@@ -3,6 +3,7 @@
 > A command-line tool for scaffolding [PlantUML](https://plantuml.com/) sequence diagrams.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0%2B-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![NuGet](https://img.shields.io/nuget/v/Cast.Cli.svg)](https://www.nuget.org/packages/Cast.Cli/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Cast turns command-line participants and messages into a PlantUML sequence diagram starter.
