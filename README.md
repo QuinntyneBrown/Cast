@@ -12,6 +12,42 @@ Cast turns command-line participants and messages into a PlantUML sequence diagr
 
 - [.NET SDK 8.0](https://dotnet.microsoft.com/download) or later (the tool targets `net8.0` and runs on the .NET 8 runtime and later)
 
+## Install From NuGet
+
+Install the latest published `Cast.Cli` tool package from NuGet:
+
+```pwsh
+dotnet tool install --global Cast.Cli
+```
+
+Or pin the currently published latest version:
+
+```pwsh
+dotnet tool install --global Cast.Cli --version 1.0.8
+```
+
+After installation, run Cast with the `cast` command:
+
+```pwsh
+cast --help
+cast generate -p actor:User -p OS -m "User -> OS : place order"
+cast ng --service projects/api/src/lib/services/dashboard.service.ts
+```
+
+Update an existing global install:
+
+```pwsh
+dotnet tool update --global Cast.Cli
+```
+
+For a repository-local tool install:
+
+```pwsh
+dotnet new tool-manifest
+dotnet tool install Cast.Cli
+dotnet tool run cast -- --help
+```
+
 ## Build And Test
 
 ```pwsh
