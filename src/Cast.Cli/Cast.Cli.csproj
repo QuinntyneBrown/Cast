@@ -16,11 +16,25 @@
     <Version>1.0.0</Version>
     <Description>Scaffolds initial PlantUML sequence diagrams from command-line participants and messages.</Description>
 
+    <!-- Package metadata for the nuget.org listing -->
+    <Authors>QuinntyneBrown</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/QuinntyneBrown/Cast</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/QuinntyneBrown/Cast</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>plantuml;sequence-diagram;cli;dotnet-tool;scaffolding;diagram</PackageTags>
+
     <!-- Quality gates -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Ship the repo README as the package readme (shown on the nuget.org page). -->
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.8" />
