@@ -1,10 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Cast.Cli.Diagnostics;
-using Cast.Cli.Hosting;
 using Cast.Cli.Models;
 using Microsoft.Extensions.Logging;
 
@@ -12,8 +12,9 @@ namespace Cast.Cli.Services;
 
 /// <summary>
 /// Default <see cref="IScaffoldService"/>. Coordinates the focused services — it parses
-/// participants and messages, optionally fills in a sample flow, validates cross-references,
-/// renders, and writes — but contains no parsing, formatting, or I/O logic of its own.
+/// participants and messages, optionally fills in a sample flow, validates cross-references and
+/// metadata, renders, and writes — but contains no parsing, formatting, or I/O logic of its own.
+/// Failures are reported as a <see cref="ScaffoldStatus"/>; cancellation propagates.
 /// </summary>
 public sealed class ScaffoldService : IScaffoldService
 {
@@ -41,12 +42,15 @@ public sealed class ScaffoldService : IScaffoldService
     }
 
     /// <inheritdoc />
-    public async Task<int> ExecuteAsync(ScaffoldRequest request, CancellationToken cancellationToken)
+    public async Task<ScaffoldStatus> ExecuteAsync(ScaffoldRequest request, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             IReadOnlyList<Participant> participants = ParseParticipants(request.Participants);
             IReadOnlyList<Message> messages = ResolveMessages(request, participants);
+            ValidateMetadata(request);
 
             var diagram = new SequenceDiagram(
                 participants,
@@ -54,6 +58,8 @@ public sealed class ScaffoldService : IScaffoldService
                 request.Title,
                 request.AutoNumber,
                 request.Theme);
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             string content = _renderer.Render(diagram);
             await _writer.WriteAsync(content, request.OutputPath, request.Force, cancellationToken).ConfigureAwait(false);
@@ -65,24 +71,24 @@ public sealed class ScaffoldService : IScaffoldService
                     participants.Count, messages.Count, request.OutputPath);
             }
 
-            return ExitCode.Success;
+            return ScaffoldStatus.Success;
         }
         catch (DiagramFormatException ex)
         {
             _logger.LogError("{Message}", ex.Message);
-            return ExitCode.UsageError;
+            return ScaffoldStatus.InvalidInput;
         }
         catch (IOException ex)
         {
             _logger.LogError("{Message}", ex.Message);
-            return ExitCode.IoError;
+            return ScaffoldStatus.OutputError;
         }
     }
 
     private IReadOnlyList<Participant> ParseParticipants(IReadOnlyList<string> specs)
     {
         var participants = new List<Participant>(specs.Count);
-        var seen = new HashSet<string>(System.StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (string spec in specs)
         {
@@ -112,7 +118,12 @@ public sealed class ScaffoldService : IScaffoldService
                 : [];
         }
 
-        var aliases = participants.Select(p => p.Alias).ToHashSet(System.StringComparer.Ordinal);
+        if (!request.IncludeSampleFlow)
+        {
+            _logger.LogInformation("--no-sample has no effect because one or more --message values were supplied.");
+        }
+
+        var aliases = participants.Select(p => p.Alias).ToHashSet(StringComparer.Ordinal);
         var messages = new List<Message>(request.Messages.Count);
 
         foreach (string spec in request.Messages)
@@ -135,5 +146,41 @@ public sealed class ScaffoldService : IScaffoldService
                 $"Message '{spec}' refers to unknown participant '{alias}'. " +
                 $"Declare it with --participant first. Known aliases: {known}.");
         }
+    }
+
+    /// <summary>Validates the free-text title and theme so they cannot break the line-oriented output.</summary>
+    private static void ValidateMetadata(ScaffoldRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Title) && ContainsControlChar(request.Title))
+        {
+            throw new DiagramFormatException(
+                "The title contains a control character (such as a line break). Use a single-line title.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Theme))
+        {
+            string theme = request.Theme.Trim();
+            foreach (char c in theme)
+            {
+                if (char.IsWhiteSpace(c) || char.IsControl(c))
+                {
+                    throw new DiagramFormatException(
+                        $"Theme '{theme}' must be a single token without whitespace; PlantUML '!theme' expects one name.");
+                }
+            }
+        }
+    }
+
+    private static bool ContainsControlChar(string value)
+    {
+        foreach (char c in value)
+        {
+            if (char.IsControl(c))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

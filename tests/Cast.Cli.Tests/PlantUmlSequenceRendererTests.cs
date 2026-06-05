@@ -107,4 +107,62 @@ public sealed class PlantUmlSequenceRendererTests
         Assert.EndsWith("@enduml\n", output);
         Assert.DoesNotContain("\r", output);
     }
+
+    [Fact]
+    public void Render_WhitespaceOnlyTitleAndTheme_AreOmitted()
+    {
+        var diagram = new SequenceDiagram(
+            [new Participant("A", ParticipantKind.Participant)], [], Title: "   ", Theme: "  ");
+
+        string output = CreateRenderer().Render(diagram);
+
+        Assert.DoesNotContain("title", output);
+        Assert.DoesNotContain("!theme", output);
+    }
+
+    [Fact]
+    public void Render_TitleAndTheme_AreTrimmed()
+    {
+        var diagram = new SequenceDiagram(
+            [new Participant("A", ParticipantKind.Participant)], [], Title: "  Hello  ", Theme: "  plain  ");
+
+        string output = CreateRenderer().Render(diagram);
+
+        Assert.Contains("title Hello\n", output);
+        Assert.Contains("!theme plain\n", output);
+    }
+
+    // Golden master: pins the full output — ordering, header comment, and blank-line separators.
+    [Fact]
+    public void Render_RepresentativeDiagram_MatchesExactOutput()
+    {
+        var diagram = new SequenceDiagram(
+            [
+                new Participant("User", ParticipantKind.Actor),
+                new Participant("OS", ParticipantKind.Participant, "Order Service"),
+            ],
+            [
+                new Message("User", "OS", "->", "place order"),
+                new Message("OS", "User", "-->", "ack"),
+            ],
+            Title: "Checkout",
+            AutoNumber: true,
+            Theme: "plain");
+
+        string expected =
+            "@startuml\n" +
+            "' Scaffolded by cast\n" +
+            "!theme plain\n" +
+            "title Checkout\n" +
+            "autonumber\n" +
+            "\n" +
+            "actor User\n" +
+            "participant \"Order Service\" as OS\n" +
+            "\n" +
+            "User -> OS : place order\n" +
+            "OS --> User : ack\n" +
+            "@enduml\n";
+
+        Assert.Equal(expected, CreateRenderer().Render(diagram));
+    }
 }

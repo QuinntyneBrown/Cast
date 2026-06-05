@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Cast.Cli.Diagnostics;
 using Cast.Cli.Models;
@@ -5,15 +7,39 @@ using Cast.Cli.Models;
 namespace Cast.Cli.Services;
 
 /// <summary>
-/// Default <see cref="IParticipantParser"/>. Splits the optional kind prefix from the
-/// alias and optional display name, validating that the alias is a usable PlantUML
-/// identifier. Kind resolution is delegated to <see cref="IParticipantKindCatalog"/>.
+/// Default <see cref="IParticipantParser"/>. Splits the optional kind prefix from the alias and
+/// optional display name, then validates that the alias is a usable PlantUML identifier (ASCII,
+/// not a reserved keyword) and that the display name contains no characters that would break the
+/// rendered output. Kind resolution is delegated to <see cref="IParticipantKindCatalog"/>.
 /// </summary>
 public sealed partial class ParticipantParser : IParticipantParser
 {
-    private readonly IParticipantKindCatalog _kinds;
+    // PlantUML structural keywords that, used bare in a declaration or as a message endpoint,
+    // produce invalid output. The check is case-sensitive (PlantUML keywords are lower-case), so
+    // capitalised names such as "Note" or "Database" remain valid aliases.
+    private static readonly string[] StructuralKeywords =
+    {
+        "as", "note", "ref", "box", "title", "header", "footer", "legend", "caption",
+        "activate", "deactivate", "destroy", "create", "autonumber", "newpage",
+        "alt", "else", "opt", "loop", "par", "break", "critical", "group", "also", "end",
+        "over", "left", "right", "of", "link", "return", "hide", "show", "skinparam",
+    };
 
-    public ParticipantParser(IParticipantKindCatalog kinds) => _kinds = kinds;
+    private readonly IParticipantKindCatalog _kinds;
+    private readonly HashSet<string> _reservedAliases;
+
+    public ParticipantParser(IParticipantKindCatalog kinds)
+    {
+        _kinds = kinds;
+
+        // Reserved = structural keywords plus the kind keywords (reused from the catalog so the
+        // vocabulary is not duplicated here).
+        _reservedAliases = new HashSet<string>(StructuralKeywords, StringComparer.Ordinal);
+        foreach (var (_, keyword) in kinds.Kinds)
+        {
+            _reservedAliases.Add(keyword);
+        }
+    }
 
     /// <inheritdoc />
     public Participant Parse(string spec)
@@ -30,8 +56,22 @@ public sealed partial class ParticipantParser : IParticipantParser
         {
             throw new DiagramFormatException(
                 $"Invalid participant alias '{alias}' in spec '{spec}'. " +
-                "An alias must start with a letter or underscore and contain only letters, digits, or underscores. " +
+                "An alias must start with an ASCII letter or underscore and contain only ASCII letters, digits, or underscores. " +
                 "Use the optional display name for friendly text, e.g. 'OS:Order Service'.");
+        }
+
+        if (_reservedAliases.Contains(alias))
+        {
+            throw new DiagramFormatException(
+                $"'{alias}' is a reserved PlantUML keyword and cannot be used as a participant alias in spec '{spec}'. " +
+                "Choose a different alias (capitalising it, e.g. 'End', is enough).");
+        }
+
+        if (displayName is not null && HasUnsupportedDisplayChar(displayName))
+        {
+            throw new DiagramFormatException(
+                $"Display name '{displayName}' in spec '{spec}' contains an unsupported character. " +
+                "Double quotes and control characters (including line breaks) are not allowed in a display name.");
         }
 
         return new Participant(alias, kind, displayName);
@@ -74,6 +114,21 @@ public sealed partial class ParticipantParser : IParticipantParser
         return (alias, string.IsNullOrEmpty(display) ? null : display);
     }
 
-    [GeneratedRegex(@"^[A-Za-z_]\w*$")]
+    /// <summary>A display name is embedded in a PlantUML quoted string, so quotes and control
+    /// characters (which would close the string early or split the line) are rejected.</summary>
+    private static bool HasUnsupportedDisplayChar(string value)
+    {
+        foreach (char c in value)
+        {
+            if (c == '"' || char.IsControl(c))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex IdentifierPattern();
 }

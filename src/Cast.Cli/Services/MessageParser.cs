@@ -6,9 +6,11 @@ namespace Cast.Cli.Services;
 
 /// <summary>
 /// Default <see cref="IMessageParser"/>. A single regex captures the source identifier, the
-/// arrow token, the target identifier, and the optional label. The arrow is accepted
-/// leniently (any run of PlantUML arrow characters containing a dash) so the full family of
-/// sequence arrows — <c>-&gt;</c>, <c>--&gt;</c>, <c>-&gt;&gt;</c>, <c>-&gt;x</c>, <c>\-</c>, … — works without enumeration.
+/// arrow token, the target identifier, and the optional label. The arrow must begin with a
+/// structural glyph (<c>-</c>, <c>&lt;</c>, <c>&gt;</c>, <c>\</c>, <c>/</c>); an <c>o</c>/<c>x</c> head
+/// decorator (as in <c>-&gt;o</c> / <c>-&gt;x</c>) is only absorbed into the arrow when whitespace
+/// separates it from the target, so a spaceless target keeps its leading <c>o</c>/<c>x</c>
+/// (e.g. <c>api-&gt;oauth</c> targets <c>oauth</c>, not <c>auth</c>).
 /// </summary>
 public sealed partial class MessageParser : IMessageParser
 {
@@ -44,8 +46,10 @@ public sealed partial class MessageParser : IMessageParser
             Label: string.IsNullOrEmpty(label) ? null : label);
     }
 
-    // src/tgt are PlantUML identifiers; arrow is any run of arrow glyphs; label is the
-    // remainder after the first colon (so labels may themselves contain colons).
-    [GeneratedRegex(@"^(?<src>[A-Za-z_]\w*)\s*(?<arrow>[-<>\\/ox]+)\s*(?<tgt>[A-Za-z_]\w*)\s*(?::\s*(?<label>.*))?$")]
+    // src/tgt are ASCII PlantUML identifiers. The arrow is either a structural run followed by
+    // an o/x decorator that MUST be followed by whitespace ((?=\s) guards against swallowing a
+    // target's leading o/x), or a plain structural run. label is everything after the first
+    // colon, so labels may themselves contain colons.
+    [GeneratedRegex(@"^(?<src>[A-Za-z_][A-Za-z0-9_]*)\s*(?<arrow>[-<>\\/]+[ox]+(?=\s)|[-<>\\/]+)\s*(?<tgt>[A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*(?<label>.*))?$")]
     private static partial Regex MessagePattern();
 }

@@ -13,8 +13,4 @@ namespace Cast.Cli.Models;
 /// Optional human-friendly label rendered as <c>"Display Name" as Alias</c>. When
 /// <see langword="null"/> the alias is rendered on its own.
 /// </param>
-public sealed record Participant(string Alias, ParticipantKind Kind, string? DisplayName = null)
-{
-    /// <summary>The label a reader sees: the display name when set, otherwise the alias.</summary>
-    public string Label => DisplayName ?? Alias;
-}
+public sealed record Participant(string Alias, ParticipantKind Kind, string? DisplayName = null);

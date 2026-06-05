@@ -11,8 +11,9 @@ command turns command-line participants and messages into a `@startuml … @endu
 
 ## Commands
 
-All projects target **.NET 10** (`net10.0`) with `ImplicitUsings` and `Nullable` enabled. The CLI
-project sets `TreatWarningsAsErrors=true`, so the build must stay warning-clean.
+All projects target **.NET 8** (`net8.0`) so the tool runs on the .NET 8 runtime and later, with
+`ImplicitUsings` and `Nullable` enabled. The CLI project sets `TreatWarningsAsErrors=true`, so the
+build must stay warning-clean.
 
 ```pwsh
 dotnet build Cast.sln                                         # build all projects

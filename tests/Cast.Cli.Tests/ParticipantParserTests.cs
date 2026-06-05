@@ -16,7 +16,6 @@ public sealed class ParticipantParserTests
         Assert.Equal("User", participant.Alias);
         Assert.Equal(ParticipantKind.Participant, participant.Kind);
         Assert.Null(participant.DisplayName);
-        Assert.Equal("User", participant.Label);
     }
 
     [Theory]
@@ -40,7 +39,6 @@ public sealed class ParticipantParserTests
         Assert.Equal(ParticipantKind.Database, participant.Kind);
         Assert.Equal("DB", participant.Alias);
         Assert.Equal("Main Database", participant.DisplayName);
-        Assert.Equal("Main Database", participant.Label);
     }
 
     [Fact]
@@ -63,13 +61,13 @@ public sealed class ParticipantParserTests
     }
 
     [Fact]
-    public void Parse_BareKeywordWithoutColon_TreatedAsAlias()
+    public void Parse_CapitalisedKeyword_IsAllowedAsAlias()
     {
-        // "actor" with no following colon is an alias, not a kind prefix.
-        Participant participant = CreateParser().Parse("actor");
+        // PlantUML keywords are lower-case, so a capitalised look-alike is a valid alias.
+        Participant participant = CreateParser().Parse("Database");
 
         Assert.Equal(ParticipantKind.Participant, participant.Kind);
-        Assert.Equal("actor", participant.Alias);
+        Assert.Equal("Database", participant.Alias);
     }
 
     [Fact]
@@ -88,7 +86,28 @@ public sealed class ParticipantParserTests
     [InlineData("Order Service")]        // space in alias
     [InlineData("1User")]                // starts with a digit
     [InlineData("user-service")]         // hyphen not allowed in an alias
+    [InlineData("café")]                 // non-ASCII letter not allowed
     public void Parse_InvalidSpec_Throws(string spec)
+    {
+        Assert.Throws<DiagramFormatException>(() => CreateParser().Parse(spec));
+    }
+
+    [Theory]
+    [InlineData("as")]
+    [InlineData("note")]
+    [InlineData("end")]
+    [InlineData("actor")]                // bare kind keyword
+    [InlineData("database")]
+    [InlineData("title")]
+    public void Parse_ReservedKeywordAlias_Throws(string spec)
+    {
+        Assert.Throws<DiagramFormatException>(() => CreateParser().Parse(spec));
+    }
+
+    [Theory]
+    [InlineData("OS:Order \"Special\" Service")] // double quote would break the quoted string
+    [InlineData("OS:Line1\nLine2")]              // control character / line break
+    public void Parse_DisplayNameWithUnsupportedCharacter_Throws(string spec)
     {
         Assert.Throws<DiagramFormatException>(() => CreateParser().Parse(spec));
     }

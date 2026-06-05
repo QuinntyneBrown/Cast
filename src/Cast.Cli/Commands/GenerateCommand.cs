@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Cast.Cli.Hosting;
 using Cast.Cli.Models;
 using Cast.Cli.Services;
 
@@ -96,7 +97,7 @@ public sealed class GenerateCommand : ICliCommand
         command.Options.Add(_force);
         command.Options.Add(_noSample);
 
-        command.SetAction((parseResult, cancellationToken) =>
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
             var request = new ScaffoldRequest(
                 Participants: parseResult.GetValue(_participants) ?? [],
@@ -108,7 +109,14 @@ public sealed class GenerateCommand : ICliCommand
                 Force: parseResult.GetValue(_force),
                 IncludeSampleFlow: !parseResult.GetValue(_noSample));
 
-            return _scaffold.ExecuteAsync(request, cancellationToken);
+            ScaffoldStatus status = await _scaffold.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+            return status switch
+            {
+                ScaffoldStatus.Success => ExitCode.Success,
+                ScaffoldStatus.OutputError => ExitCode.IoError,
+                _ => ExitCode.UsageError,
+            };
         });
 
         return command;

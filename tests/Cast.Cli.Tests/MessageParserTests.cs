@@ -69,6 +69,34 @@ public sealed class MessageParserTests
         Assert.Equal(expectedArrow, message.Arrow);
     }
 
+    // Regression: 'o'/'x' are arrow-head decorators, but a spaceless target whose alias starts
+    // with 'o'/'x' must NOT have that first character swallowed into the arrow.
+    [Theory]
+    [InlineData("api->oauth", "oauth")]
+    [InlineData("src->object", "object")]
+    [InlineData("A->oB", "oB")]
+    [InlineData("A->xtra", "xtra")]
+    public void Parse_SpacelessTargetStartingWithOorX_KeepsFullTarget(string spec, string expectedTarget)
+    {
+        Message message = CreateParser().Parse(spec);
+
+        Assert.Equal("->", message.Arrow);
+        Assert.Equal(expectedTarget, message.Target);
+    }
+
+    // The 'o'/'x' decorator IS absorbed into the arrow when whitespace separates it from the target.
+    [Theory]
+    [InlineData("A ->o B", "->o")]
+    [InlineData("A ->x B", "->x")]
+    [InlineData("A -->o B", "-->o")]
+    public void Parse_DecoratedArrowWithTrailingSpace_KeepsDecorator(string spec, string expectedArrow)
+    {
+        Message message = CreateParser().Parse(spec);
+
+        Assert.Equal(expectedArrow, message.Arrow);
+        Assert.Equal("B", message.Target);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -76,6 +104,8 @@ public sealed class MessageParserTests
     [InlineData("A -> ")]            // missing target
     [InlineData("-> B")]             // missing source
     [InlineData("A <> B")]           // arrow without a dash
+    [InlineData("UserxOrder")]       // no structural arrow glyph at all
+    [InlineData("Aox")]              // 'o'/'x' alone are not an arrow
     public void Parse_InvalidSpec_Throws(string spec)
     {
         Assert.Throws<DiagramFormatException>(() => CreateParser().Parse(spec));

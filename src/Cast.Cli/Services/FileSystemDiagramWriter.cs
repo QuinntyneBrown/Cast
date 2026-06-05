@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,7 +32,15 @@ public sealed class FileSystemDiagramWriter : IDiagramWriter
             return;
         }
 
-        string fullPath = Path.GetFullPath(outputPath);
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(outputPath);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        {
+            throw new IOException($"'{outputPath}' is not a valid file path.", ex);
+        }
 
         if (File.Exists(fullPath) && !overwrite)
         {
@@ -39,12 +48,21 @@ public sealed class FileSystemDiagramWriter : IDiagramWriter
                 $"Output file '{fullPath}' already exists. Re-run with --force to overwrite it.");
         }
 
-        string? directory = Path.GetDirectoryName(fullPath);
-        if (!string.IsNullOrEmpty(directory))
+        // Translate access failures into IOException so the contract holds; cancellation
+        // (OperationCanceledException) is intentionally left to propagate.
+        try
         {
-            Directory.CreateDirectory(directory);
-        }
+            string? directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
 
-        await File.WriteAllTextAsync(fullPath, content, cancellationToken).ConfigureAwait(false);
+            await File.WriteAllTextAsync(fullPath, content, cancellationToken).ConfigureAwait(false);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new IOException($"Access to '{fullPath}' was denied.", ex);
+        }
     }
 }

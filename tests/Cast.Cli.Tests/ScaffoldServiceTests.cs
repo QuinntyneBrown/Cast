@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Cast.Cli.Hosting;
 using Cast.Cli.Models;
 using Cast.Cli.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,11 +43,11 @@ public sealed class ScaffoldServiceTests
     {
         (ScaffoldService service, StringWriter stdout) = CreateService();
 
-        int exit = await service.ExecuteAsync(
+        ScaffoldStatus status = await service.ExecuteAsync(
             Request(["actor:User", "OS:Order Service"], ["User -> OS : place order"]),
             CancellationToken.None);
 
-        Assert.Equal(ExitCode.Success, exit);
+        Assert.Equal(ScaffoldStatus.Success, status);
         string output = stdout.ToString();
         Assert.Contains("@startuml", output);
         Assert.Contains("actor User", output);
@@ -61,11 +60,11 @@ public sealed class ScaffoldServiceTests
     {
         (ScaffoldService service, StringWriter stdout) = CreateService();
 
-        int exit = await service.ExecuteAsync(
+        ScaffoldStatus status = await service.ExecuteAsync(
             Request(["A", "B"], includeSampleFlow: true),
             CancellationToken.None);
 
-        Assert.Equal(ExitCode.Success, exit);
+        Assert.Equal(ScaffoldStatus.Success, status);
         string output = stdout.ToString();
         Assert.Contains("A -> B", output);
         Assert.Contains("B --> A", output);
@@ -76,54 +75,99 @@ public sealed class ScaffoldServiceTests
     {
         (ScaffoldService service, StringWriter stdout) = CreateService();
 
-        int exit = await service.ExecuteAsync(
+        ScaffoldStatus status = await service.ExecuteAsync(
             Request(["A", "B"], includeSampleFlow: false),
             CancellationToken.None);
 
-        Assert.Equal(ExitCode.Success, exit);
-        string output = stdout.ToString();
-        Assert.DoesNotContain("->", output);
+        Assert.Equal(ScaffoldStatus.Success, status);
+        Assert.DoesNotContain("->", stdout.ToString());
     }
 
     [Fact]
-    public async Task ExecuteAsync_DuplicateAlias_ReturnsUsageError()
+    public async Task ExecuteAsync_DuplicateAlias_ReturnsInvalidInput()
     {
         (ScaffoldService service, _) = CreateService();
 
-        int exit = await service.ExecuteAsync(
-            Request(["A", "A"]),
-            CancellationToken.None);
+        ScaffoldStatus status = await service.ExecuteAsync(Request(["A", "A"]), CancellationToken.None);
 
-        Assert.Equal(ExitCode.UsageError, exit);
+        Assert.Equal(ScaffoldStatus.InvalidInput, status);
     }
 
     [Fact]
-    public async Task ExecuteAsync_MessageReferencingUnknownParticipant_ReturnsUsageError()
+    public async Task ExecuteAsync_MessageReferencingUnknownParticipant_ReturnsInvalidInput()
     {
         (ScaffoldService service, _) = CreateService();
 
-        int exit = await service.ExecuteAsync(
+        ScaffoldStatus status = await service.ExecuteAsync(
             Request(["A", "B"], ["A -> Z : oops"]),
             CancellationToken.None);
 
-        Assert.Equal(ExitCode.UsageError, exit);
+        Assert.Equal(ScaffoldStatus.InvalidInput, status);
     }
 
     [Fact]
-    public async Task ExecuteAsync_OutputToFile_WritesFile()
+    public async Task ExecuteAsync_AliasesAreCaseSensitive()
+    {
+        (ScaffoldService service, StringWriter stdout) = CreateService();
+
+        // 'A' and 'a' are distinct lifelines (Ordinal), matching PlantUML's case sensitivity.
+        ScaffoldStatus status = await service.ExecuteAsync(
+            Request(["A", "a"], ["A -> a : call"]),
+            CancellationToken.None);
+
+        Assert.Equal(ScaffoldStatus.Success, status);
+        Assert.Contains("A -> a : call", stdout.ToString());
+    }
+
+    [Theory]
+    [InlineData("Bad\nTitle", null)]   // newline in title
+    [InlineData(null, "my theme")]     // whitespace in theme
+    public async Task ExecuteAsync_InvalidMetadata_ReturnsInvalidInput(string? title, string? theme)
+    {
+        (ScaffoldService service, _) = CreateService();
+
+        ScaffoldStatus status = await service.ExecuteAsync(
+            Request(["A", "B"], ["A -> B : x"], title: title, theme: theme),
+            CancellationToken.None);
+
+        Assert.Equal(ScaffoldStatus.InvalidInput, status);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PreCancelledToken_Throws()
+    {
+        (ScaffoldService service, _) = CreateService();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => service.ExecuteAsync(Request(["A", "B"]), cts.Token));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OutputToFile_WritesUtf8NoBom_ExactContent()
     {
         (ScaffoldService service, _) = CreateService();
         string path = Path.Combine(Path.GetTempPath(), $"cast-test-{Guid.NewGuid():N}.puml");
 
         try
         {
-            int exit = await service.ExecuteAsync(
+            ScaffoldStatus status = await service.ExecuteAsync(
                 Request(["A", "B"], ["A -> B : hi"], outputPath: path),
                 CancellationToken.None);
 
-            Assert.Equal(ExitCode.Success, exit);
+            Assert.Equal(ScaffoldStatus.Success, status);
             Assert.True(File.Exists(path));
-            Assert.Contains("A -> B : hi", await File.ReadAllTextAsync(path));
+
+            byte[] bytes = await File.ReadAllBytesAsync(path);
+            Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF,
+                "file must not start with a UTF-8 BOM");
+
+            string text = await File.ReadAllTextAsync(path);
+            Assert.StartsWith("@startuml", text);
+            Assert.EndsWith("@enduml\n", text);
+            Assert.DoesNotContain("\r", text);
+            Assert.Contains("A -> B : hi", text);
         }
         finally
         {
@@ -135,7 +179,7 @@ public sealed class ScaffoldServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ExistingFileWithoutForce_ReturnsIoError()
+    public async Task ExecuteAsync_ExistingFileWithoutForce_ReturnsOutputError()
     {
         (ScaffoldService service, _) = CreateService();
         string path = Path.Combine(Path.GetTempPath(), $"cast-test-{Guid.NewGuid():N}.puml");
@@ -143,11 +187,11 @@ public sealed class ScaffoldServiceTests
 
         try
         {
-            int exit = await service.ExecuteAsync(
+            ScaffoldStatus status = await service.ExecuteAsync(
                 Request(["A", "B"], ["A -> B : hi"], outputPath: path, force: false),
                 CancellationToken.None);
 
-            Assert.Equal(ExitCode.IoError, exit);
+            Assert.Equal(ScaffoldStatus.OutputError, status);
             Assert.Equal("existing", await File.ReadAllTextAsync(path)); // untouched
         }
         finally
@@ -168,11 +212,11 @@ public sealed class ScaffoldServiceTests
 
         try
         {
-            int exit = await service.ExecuteAsync(
+            ScaffoldStatus status = await service.ExecuteAsync(
                 Request(["A", "B"], ["A -> B : hi"], outputPath: path, force: true),
                 CancellationToken.None);
 
-            Assert.Equal(ExitCode.Success, exit);
+            Assert.Equal(ScaffoldStatus.Success, status);
             Assert.Contains("@startuml", await File.ReadAllTextAsync(path));
         }
         finally
