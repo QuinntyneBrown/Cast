@@ -83,6 +83,36 @@ public sealed class GenerateCommandTests
         Assert.False(Assert.IsType<ScaffoldRequest>(fake.Captured).IncludeSampleFlow);
     }
 
+    [Fact]
+    public async Task Invoke_WithoutOutputOrStdout_DefaultsToCastPuml()
+    {
+        var fake = new CapturingScaffoldService();
+
+        await Invoke(fake, "-p", "A");
+
+        Assert.Equal("cast.puml", Assert.IsType<ScaffoldRequest>(fake.Captured).OutputPath);
+    }
+
+    [Fact]
+    public async Task Invoke_WithStdout_UsesStandardOutput()
+    {
+        var fake = new CapturingScaffoldService();
+
+        await Invoke(fake, "-p", "A", "--stdout");
+
+        Assert.Null(Assert.IsType<ScaffoldRequest>(fake.Captured).OutputPath);
+    }
+
+    [Fact]
+    public async Task Invoke_WithStdoutAndOutput_StdoutWins()
+    {
+        var fake = new CapturingScaffoldService();
+
+        await Invoke(fake, "-p", "A", "--stdout", "-o", "out.puml");
+
+        Assert.Null(Assert.IsType<ScaffoldRequest>(fake.Captured).OutputPath);
+    }
+
     [Theory]
     [InlineData(ScaffoldStatus.Success, 0)]
     [InlineData(ScaffoldStatus.InvalidInput, 1)]

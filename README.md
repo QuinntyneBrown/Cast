@@ -69,8 +69,12 @@ dotnet run --project src/Cast.Cli -- generate `
   -m "User -> OS : place order" `
   -m "OS -> DB : persist" `
   --title "Checkout" `
-  --autonumber
+  --autonumber `
+  --stdout
 ```
+
+By default the diagram is written to `cast.puml` in the current directory; pass `--stdout` to
+print it to standard output instead, or `-o <file>` to choose another path.
 
 Output:
 
@@ -102,7 +106,8 @@ Scaffolds a PlantUML sequence diagram from participants and optional messages.
 | `-t, --title <text>` | Adds a PlantUML `title`. |
 | `--autonumber` | Adds PlantUML `autonumber`. |
 | `--theme <name>` | Adds PlantUML `!theme <name>`. |
-| `-o, --output <file>` | Writes to a file instead of standard output. |
+| `-o, --output <file>` | Write to this file. Defaults to `cast.puml` in the current directory. |
+| `--stdout` | Write to standard output instead of a file (takes precedence over `--output`). |
 | `--force` | Overwrites an existing output file. |
 | `--no-sample` | Disables placeholder messages when no `--message` values are supplied. |
 

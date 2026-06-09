@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Status
 
 `cast` is a working CLI that scaffolds initial PlantUML sequence diagrams. The `generate`
-command turns command-line participants and messages into a `@startuml … @enduml` skeleton; the
+command turns command-line participants and messages into a `@startuml … @enduml` skeleton,
+writing `cast.puml` in the current directory by default (`--stdout` prints instead); the
 `kinds` command lists the participant kinds; the `ng` command inspects an Angular `.ts` file and
 renders a narrated diagram of how Angular injects dependencies into any `inject()`-using construct
 (service, component, directive, pipe, interceptor, guard, resolver, or exported function), writing a
@@ -20,7 +21,7 @@ build must stay warning-clean.
 
 ```pwsh
 dotnet build Cast.sln                                         # build all projects
-dotnet run --project src/Cast.Cli -- generate -p actor:User -p OS   # run the CLI
+dotnet run --project src/Cast.Cli -- generate -p actor:User -p OS   # writes cast.puml in the cwd
 dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # writes foo.service.puml beside it
 dotnet test Cast.sln                                          # run all tests
 ```
@@ -56,7 +57,8 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command).
 - `src/Cast.Cli/Diagnostics/` — `DiagramFormatException` for user-facing input errors.
 
-Conventions: the diagram goes to **stdout**, logs go to **stderr**. Adding a command means adding
+Conventions: both commands write a `.puml` file by default (`--stdout` prints the diagram to
+**stdout** instead), and logs go to **stderr**. Adding a command means adding
 an `ICliCommand` and registering it in `AddCast` — no central switchboard to edit.
 
 ## Tests
