@@ -132,6 +132,65 @@ public sealed class PlantUmlSequenceRendererTests
         Assert.Contains("!theme plain\n", output);
     }
 
+    [Fact]
+    public void Render_AlwaysEmitsTeozPragmaAndFontSize()
+    {
+        var diagram = new SequenceDiagram([new Participant("A", ParticipantKind.Participant)], []);
+
+        string output = CreateRenderer().Render(diagram);
+
+        Assert.Contains("!pragma teoz true\n", output);
+        Assert.Contains("skinparam defaultFontSize 10\n", output);
+    }
+
+    [Fact]
+    public void Render_DefaultStyle_WrapsNonActorsInDoubleNestedBox()
+    {
+        var diagram = new SequenceDiagram(
+            [new Participant("A", ParticipantKind.Participant), new Participant("DB", ParticipantKind.Database)], []);
+
+        string output = CreateRenderer().Render(diagram);
+
+        Assert.Contains("box #PHYSICAL\n  box #AZURE\n    participant A\n    database DB\n  end box\nend box\n", output);
+    }
+
+    [Fact]
+    public void Render_Actor_StaysOutsideTheBoxes()
+    {
+        var diagram = new SequenceDiagram(
+            [new Participant("A", ParticipantKind.Participant), new Participant("U", ParticipantKind.Actor)], []);
+
+        string[] lines = LinesOf(CreateRenderer().Render(diagram));
+
+        // The actor is declared before the box opens, never inside it.
+        Assert.Equal("actor U", Assert.Single(lines, l => l.Contains("actor U")));
+        Assert.True(Array.IndexOf(lines, "actor U") < Array.IndexOf(lines, "box #PHYSICAL"));
+    }
+
+    [Fact]
+    public void Render_OnlyActors_EmitsNoBox()
+    {
+        var diagram = new SequenceDiagram([new Participant("U", ParticipantKind.Actor)], []);
+
+        string output = CreateRenderer().Render(diagram);
+
+        Assert.DoesNotContain("box", output);
+    }
+
+    [Fact]
+    public void Render_CustomStyle_UsesConfiguredBoxColors()
+    {
+        var diagram = new SequenceDiagram(
+            [new Participant("A", ParticipantKind.Participant)], [],
+            Style: new DiagramStyle("#DeepSkyBlue", "#FFFFFF"));
+
+        string output = CreateRenderer().Render(diagram);
+
+        Assert.Contains("box #DeepSkyBlue\n  box #FFFFFF\n", output);
+        Assert.DoesNotContain("#PHYSICAL", output);
+        Assert.DoesNotContain("#AZURE", output);
+    }
+
     // Golden master: pins the full output — ordering, header comment, and blank-line separators.
     [Fact]
     public void Render_RepresentativeDiagram_MatchesExactOutput()
@@ -152,12 +211,18 @@ public sealed class PlantUmlSequenceRendererTests
         string expected =
             "@startuml\n" +
             "' Scaffolded by cast\n" +
+            "!pragma teoz true\n" +
             "!theme plain\n" +
+            "skinparam defaultFontSize 10\n" +
             "title Checkout\n" +
             "autonumber\n" +
             "\n" +
             "actor User\n" +
-            "participant \"Order Service\" as OS\n" +
+            "box #PHYSICAL\n" +
+            "  box #AZURE\n" +
+            "    participant \"Order Service\" as OS\n" +
+            "  end box\n" +
+            "end box\n" +
             "\n" +
             "User -> OS : place order\n" +
             "OS --> User : ack\n" +

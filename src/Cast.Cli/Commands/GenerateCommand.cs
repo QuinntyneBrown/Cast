@@ -26,6 +26,8 @@ public sealed class GenerateCommand : ICliCommand
     private readonly Option<bool> _stdout;
     private readonly Option<bool> _force;
     private readonly Option<bool> _noSample;
+    private readonly Option<string?> _outerBoxColor;
+    private readonly Option<string?> _innerBoxColor;
 
     public GenerateCommand(IScaffoldService scaffold)
     {
@@ -89,6 +91,18 @@ public sealed class GenerateCommand : ICliCommand
         {
             Description = "When no --message is supplied, do not generate a placeholder flow.",
         };
+
+        _outerBoxColor = new Option<string?>("--outer-box-color")
+        {
+            Description = $"Color of the outer box wrapping the non-actor participants (defaults to {DiagramStyle.DefaultOuterBoxColor}).",
+            HelpName = "color",
+        };
+
+        _innerBoxColor = new Option<string?>("--inner-box-color")
+        {
+            Description = $"Color of the inner box wrapping the non-actor participants (defaults to {DiagramStyle.DefaultInnerBoxColor}).",
+            HelpName = "color",
+        };
     }
 
     /// <inheritdoc />
@@ -106,6 +120,8 @@ public sealed class GenerateCommand : ICliCommand
         command.Options.Add(_stdout);
         command.Options.Add(_force);
         command.Options.Add(_noSample);
+        command.Options.Add(_outerBoxColor);
+        command.Options.Add(_innerBoxColor);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -123,7 +139,9 @@ public sealed class GenerateCommand : ICliCommand
                 Theme: parseResult.GetValue(_theme),
                 OutputPath: outputPath,
                 Force: parseResult.GetValue(_force),
-                IncludeSampleFlow: !parseResult.GetValue(_noSample));
+                IncludeSampleFlow: !parseResult.GetValue(_noSample),
+                OuterBoxColor: parseResult.GetValue(_outerBoxColor),
+                InnerBoxColor: parseResult.GetValue(_innerBoxColor));
 
             ScaffoldStatus status = await _scaffold.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

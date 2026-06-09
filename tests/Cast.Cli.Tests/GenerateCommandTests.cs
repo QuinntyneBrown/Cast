@@ -49,7 +49,9 @@ public sealed class GenerateCommandTests
             "--autonumber",
             "--theme", "plain",
             "-o", "out.puml",
-            "--force");
+            "--force",
+            "--outer-box-color", "#LightGray",
+            "--inner-box-color", "#White");
 
         Assert.Equal(0, exit);
         ScaffoldRequest request = Assert.IsType<ScaffoldRequest>(fake.Captured);
@@ -61,6 +63,20 @@ public sealed class GenerateCommandTests
         Assert.Equal("out.puml", request.OutputPath);
         Assert.True(request.Force);
         Assert.True(request.IncludeSampleFlow); // no --no-sample
+        Assert.Equal("#LightGray", request.OuterBoxColor);
+        Assert.Equal("#White", request.InnerBoxColor);
+    }
+
+    [Fact]
+    public async Task Invoke_WithoutBoxColors_LeavesThemNull()
+    {
+        var fake = new CapturingScaffoldService();
+
+        await Invoke(fake, "-p", "A");
+
+        ScaffoldRequest request = Assert.IsType<ScaffoldRequest>(fake.Captured);
+        Assert.Null(request.OuterBoxColor);
+        Assert.Null(request.InnerBoxColor);
     }
 
     [Fact]

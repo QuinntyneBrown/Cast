@@ -23,6 +23,8 @@ public sealed class NgCommand : ICliCommand
     private readonly Option<string?> _output;
     private readonly Option<bool> _stdout;
     private readonly Option<bool> _force;
+    private readonly Option<string?> _outerBoxColor;
+    private readonly Option<string?> _innerBoxColor;
 
     public NgCommand(IAngularDiagramService service)
     {
@@ -56,6 +58,18 @@ public sealed class NgCommand : ICliCommand
         {
             Description = "Overwrite the output file if it already exists.",
         };
+
+        _outerBoxColor = new Option<string?>("--outer-box-color")
+        {
+            Description = $"Color of the outer box wrapping the non-actor participants (defaults to {DiagramStyle.DefaultOuterBoxColor}).",
+            HelpName = "color",
+        };
+
+        _innerBoxColor = new Option<string?>("--inner-box-color")
+        {
+            Description = $"Color of the inner box wrapping the non-actor participants (defaults to {DiagramStyle.DefaultInnerBoxColor}).",
+            HelpName = "color",
+        };
     }
 
     /// <inheritdoc />
@@ -69,6 +83,8 @@ public sealed class NgCommand : ICliCommand
         command.Options.Add(_output);
         command.Options.Add(_stdout);
         command.Options.Add(_force);
+        command.Options.Add(_outerBoxColor);
+        command.Options.Add(_innerBoxColor);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -84,7 +100,9 @@ public sealed class NgCommand : ICliCommand
                 ServicePath: servicePath,
                 Title: parseResult.GetValue(_title),
                 OutputPath: outputPath,
-                Force: parseResult.GetValue(_force));
+                Force: parseResult.GetValue(_force),
+                OuterBoxColor: parseResult.GetValue(_outerBoxColor),
+                InnerBoxColor: parseResult.GetValue(_innerBoxColor));
 
             ScaffoldStatus status = await _service.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

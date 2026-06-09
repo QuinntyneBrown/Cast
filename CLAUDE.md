@@ -53,13 +53,19 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   `ISourceFileReader` (the read-side I/O boundary, mirroring `IDiagramWriter`), and the
   `IAngularDiagramService` orchestrator.
 - `src/Cast.Cli/Models/` — immutable records (`Participant`, `Message`, `SequenceDiagram`,
-  `ScaffoldRequest`, `ParticipantKind`; plus `AngularService`, `AngularDependency`,
+  `ScaffoldRequest`, `ParticipantKind`, `DiagramStyle`; plus `AngularService`, `AngularDependency`,
   `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command).
 - `src/Cast.Cli/Diagnostics/` — `DiagramFormatException` for user-facing input errors.
 
 Conventions: both commands write a `.puml` file by default (`--stdout` prints the diagram to
 **stdout** instead), and logs go to **stderr**. Adding a command means adding
 an `ICliCommand` and registering it in `AddCast` — no central switchboard to edit.
+
+PlantUML output conventions (both renderers): always emit `!pragma teoz true` and
+`skinparam defaultFontSize 10`, and wrap the non-actor participants in a double nested box —
+outer `#PHYSICAL`, inner `#AZURE` by default. Actors always stay outside the boxes. Both colors
+are overridable per command via `--outer-box-color` / `--inner-box-color`, normalized and
+validated by `DiagramStyle.FromOptions` (a missing `#` prefix is added).
 
 ## Tests
 

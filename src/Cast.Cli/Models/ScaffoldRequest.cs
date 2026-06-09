@@ -19,6 +19,8 @@ namespace Cast.Cli.Models;
 /// When no messages are supplied, generate a placeholder flow connecting the participants
 /// so the output is a usable starting point rather than bare declarations.
 /// </param>
+/// <param name="OuterBoxColor">Optional outer participant-box color overriding <see cref="DiagramStyle.DefaultOuterBoxColor"/>.</param>
+/// <param name="InnerBoxColor">Optional inner participant-box color overriding <see cref="DiagramStyle.DefaultInnerBoxColor"/>.</param>
 public sealed record ScaffoldRequest(
     IReadOnlyList<string> Participants,
     IReadOnlyList<string> Messages,
@@ -27,4 +29,6 @@ public sealed record ScaffoldRequest(
     string? Theme,
     string? OutputPath,
     bool Force,
-    bool IncludeSampleFlow);
+    bool IncludeSampleFlow,
+    string? OuterBoxColor = null,
+    string? InnerBoxColor = null);

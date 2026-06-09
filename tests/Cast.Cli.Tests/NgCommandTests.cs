@@ -45,7 +45,9 @@ public sealed class NgCommandTests
             "--service", "src/app/foo.service.ts",
             "--title", "Wiring",
             "-o", "out.puml",
-            "--force");
+            "--force",
+            "--outer-box-color", "#LightGray",
+            "--inner-box-color", "#White");
 
         Assert.Equal(0, exit);
         AngularDiagramRequest request = Assert.IsType<AngularDiagramRequest>(fake.Captured);
@@ -53,6 +55,20 @@ public sealed class NgCommandTests
         Assert.Equal("Wiring", request.Title);
         Assert.Equal("out.puml", request.OutputPath);
         Assert.True(request.Force);
+        Assert.Equal("#LightGray", request.OuterBoxColor);
+        Assert.Equal("#White", request.InnerBoxColor);
+    }
+
+    [Fact]
+    public async Task Invoke_WithoutBoxColors_LeavesThemNull()
+    {
+        var fake = new CapturingAngularDiagramService();
+
+        await Invoke(fake, "-s", "a.service.ts");
+
+        AngularDiagramRequest request = Assert.IsType<AngularDiagramRequest>(fake.Captured);
+        Assert.Null(request.OuterBoxColor);
+        Assert.Null(request.InnerBoxColor);
     }
 
     [Fact]

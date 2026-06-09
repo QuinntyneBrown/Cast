@@ -1,11 +1,15 @@
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 using Cast.Cli.Models;
 
 namespace Cast.Cli.Services;
 
 /// <summary>
 /// Renders a <see cref="SequenceDiagram"/> as PlantUML (<c>@startuml … @enduml</c>) source.
+/// Every diagram runs the teoz engine (<c>!pragma teoz true</c>) with a default font size of 10,
+/// and wraps the non-actor participants in a double nested box (outer/inner colors from
+/// <see cref="DiagramStyle"/>). Actors always stay outside the boxes, so they are declared
+/// first — the box must be one contiguous block.
 /// Output uses <c>\n</c> line endings for deterministic, platform-independent results.
 /// </summary>
 public sealed class PlantUmlSequenceRenderer : ISequenceDiagramRenderer
@@ -19,12 +23,16 @@ public sealed class PlantUmlSequenceRenderer : ISequenceDiagramRenderer
     /// <inheritdoc />
     public string Render(SequenceDiagram diagram)
     {
-        var lines = new List<string> { "@startuml", "' Scaffolded by cast" };
+        DiagramStyle style = diagram.Style ?? DiagramStyle.Default;
+        var lines = new List<string> { "@startuml", "' Scaffolded by cast", "!pragma teoz true" };
 
         if (!string.IsNullOrWhiteSpace(diagram.Theme))
         {
             lines.Add($"!theme {diagram.Theme.Trim()}");
         }
+
+        // After the theme so the mandated font size wins even when the theme sets its own.
+        lines.Add("skinparam defaultFontSize 10");
 
         if (!string.IsNullOrWhiteSpace(diagram.Title))
         {
@@ -39,10 +47,7 @@ public sealed class PlantUmlSequenceRenderer : ISequenceDiagramRenderer
         if (diagram.Participants.Count > 0)
         {
             lines.Add(string.Empty);
-            foreach (Participant participant in diagram.Participants)
-            {
-                lines.Add(RenderParticipant(participant));
-            }
+            RenderParticipants(lines, diagram.Participants, style);
         }
 
         if (diagram.Messages.Count > 0)
@@ -58,6 +63,30 @@ public sealed class PlantUmlSequenceRenderer : ISequenceDiagramRenderer
 
         // Trailing newline so the file ends cleanly / concatenates well.
         return string.Join(Newline, lines) + Newline;
+    }
+
+    private void RenderParticipants(List<string> lines, IReadOnlyList<Participant> participants, DiagramStyle style)
+    {
+        foreach (Participant actor in participants.Where(p => p.Kind == ParticipantKind.Actor))
+        {
+            lines.Add(RenderParticipant(actor));
+        }
+
+        List<Participant> boxed = participants.Where(p => p.Kind != ParticipantKind.Actor).ToList();
+        if (boxed.Count == 0)
+        {
+            return;
+        }
+
+        lines.Add($"box {style.OuterBoxColor}");
+        lines.Add($"  box {style.InnerBoxColor}");
+        foreach (Participant participant in boxed)
+        {
+            lines.Add($"    {RenderParticipant(participant)}");
+        }
+
+        lines.Add("  end box");
+        lines.Add("end box");
     }
 
     private string RenderParticipant(Participant participant)

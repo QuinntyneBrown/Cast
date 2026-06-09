@@ -14,5 +14,6 @@ public interface IAngularDiagramRenderer
     /// </summary>
     /// <param name="service">The parsed consumer and its dependencies.</param>
     /// <param name="title">An explicit title, or <see langword="null"/> to use a generated one.</param>
-    string Render(AngularService service, string? title = null);
+    /// <param name="style">Box colors and other global styling, or <see langword="null"/> for <see cref="DiagramStyle.Default"/>.</param>
+    string Render(AngularService service, string? title = null, DiagramStyle? style = null);
 }

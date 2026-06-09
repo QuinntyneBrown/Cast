@@ -35,8 +35,11 @@ public sealed class ScaffoldServiceTests
         bool includeSampleFlow = true,
         string? title = null,
         bool autoNumber = false,
-        string? theme = null) =>
-        new(participants, messages ?? [], title, autoNumber, theme, outputPath, force, includeSampleFlow);
+        string? theme = null,
+        string? outerBoxColor = null,
+        string? innerBoxColor = null) =>
+        new(participants, messages ?? [], title, autoNumber, theme, outputPath, force, includeSampleFlow,
+            outerBoxColor, innerBoxColor);
 
     [Fact]
     public async Task ExecuteAsync_ValidInput_WritesDiagramToStdOut_AndReturnsSuccess()
@@ -117,6 +120,33 @@ public sealed class ScaffoldServiceTests
 
         Assert.Equal(ScaffoldStatus.Success, status);
         Assert.Contains("A -> a : call", stdout.ToString());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_BoxColors_FlowIntoRenderedOutput()
+    {
+        (ScaffoldService service, StringWriter stdout) = CreateService();
+
+        ScaffoldStatus status = await service.ExecuteAsync(
+            Request(["actor:User", "OS"], outerBoxColor: "LightGray", innerBoxColor: "#White"),
+            CancellationToken.None);
+
+        Assert.Equal(ScaffoldStatus.Success, status);
+        string output = stdout.ToString();
+        Assert.Contains("box #LightGray", output);
+        Assert.Contains("box #White", output);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_BoxColorWithWhitespace_ReturnsInvalidInput()
+    {
+        (ScaffoldService service, _) = CreateService();
+
+        ScaffoldStatus status = await service.ExecuteAsync(
+            Request(["A", "B"], outerBoxColor: "light gray"),
+            CancellationToken.None);
+
+        Assert.Equal(ScaffoldStatus.InvalidInput, status);
     }
 
     [Theory]

@@ -49,8 +49,10 @@ public sealed class AngularDiagramServiceTests
         string path = "dashboard.service.ts",
         string? title = null,
         string? outputPath = null,
-        bool force = false) =>
-        new(path, title, outputPath, force);
+        bool force = false,
+        string? outerBoxColor = null,
+        string? innerBoxColor = null) =>
+        new(path, title, outputPath, force, outerBoxColor, innerBoxColor);
 
     [Fact]
     public async Task ExecuteAsync_ValidService_WritesDiagramToStdOut_AndReturnsSuccess()
@@ -75,6 +77,32 @@ public sealed class AngularDiagramServiceTests
         await service.ExecuteAsync(Request(title: "Custom"), CancellationToken.None);
 
         Assert.Contains("title Custom\n", stdout.ToString());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_BoxColors_FlowIntoRenderedOutput()
+    {
+        (AngularDiagramService service, StringWriter stdout) = CreateService(new StubReader(_ => DashboardSource));
+
+        ScaffoldStatus status = await service.ExecuteAsync(
+            Request(outerBoxColor: "LightGray", innerBoxColor: "#White"), CancellationToken.None);
+
+        Assert.Equal(ScaffoldStatus.Success, status);
+        string output = stdout.ToString();
+        Assert.Contains("box #LightGray", output);
+        Assert.Contains("box #White", output);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_BoxColorWithWhitespace_ReturnsInvalidInput()
+    {
+        (AngularDiagramService service, StringWriter stdout) = CreateService(new StubReader(_ => DashboardSource));
+
+        ScaffoldStatus status = await service.ExecuteAsync(
+            Request(outerBoxColor: "light gray"), CancellationToken.None);
+
+        Assert.Equal(ScaffoldStatus.InvalidInput, status);
+        Assert.Equal(string.Empty, stdout.ToString()); // nothing emitted
     }
 
     [Fact]

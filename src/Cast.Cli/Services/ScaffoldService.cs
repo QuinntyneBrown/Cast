@@ -57,7 +57,8 @@ public sealed class ScaffoldService : IScaffoldService
                 messages,
                 request.Title,
                 request.AutoNumber,
-                request.Theme);
+                request.Theme,
+                DiagramStyle.FromOptions(request.OuterBoxColor, request.InnerBoxColor));
 
             cancellationToken.ThrowIfCancellationRequested();
 

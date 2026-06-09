@@ -9,8 +9,12 @@ namespace Cast.Cli.Models;
 /// <param name="Title">Optional diagram title overriding the generated default.</param>
 /// <param name="OutputPath">Destination file path, or <see langword="null"/> to write to standard output.</param>
 /// <param name="Force">Overwrite <paramref name="OutputPath"/> if it already exists.</param>
+/// <param name="OuterBoxColor">Optional outer participant-box color overriding <see cref="DiagramStyle.DefaultOuterBoxColor"/>.</param>
+/// <param name="InnerBoxColor">Optional inner participant-box color overriding <see cref="DiagramStyle.DefaultInnerBoxColor"/>.</param>
 public sealed record AngularDiagramRequest(
     string ServicePath,
     string? Title,
     string? OutputPath,
-    bool Force);
+    bool Force,
+    string? OuterBoxColor = null,
+    string? InnerBoxColor = null);

@@ -12,9 +12,11 @@ namespace Cast.Cli.Models;
 /// <param name="Title">Optional diagram title.</param>
 /// <param name="AutoNumber">When <see langword="true"/>, emits <c>autonumber</c>.</param>
 /// <param name="Theme">Optional PlantUML theme name emitted as <c>!theme &lt;name&gt;</c>.</param>
+/// <param name="Style">Box colors and other global styling; <see langword="null"/> means <see cref="DiagramStyle.Default"/>.</param>
 public sealed record SequenceDiagram(
     IReadOnlyList<Participant> Participants,
     IReadOnlyList<Message> Messages,
     string? Title = null,
     bool AutoNumber = false,
-    string? Theme = null);
+    string? Theme = null,
+    DiagramStyle? Style = null);

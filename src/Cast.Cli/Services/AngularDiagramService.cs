@@ -56,8 +56,9 @@ public sealed class AngularDiagramService : IAngularDiagramService
         try
         {
             ValidateTitle(request.Title);
+            DiagramStyle style = DiagramStyle.FromOptions(request.OuterBoxColor, request.InnerBoxColor);
             AngularService service = _parser.Parse(source, Path.GetFileName(request.ServicePath));
-            content = _renderer.Render(service, request.Title);
+            content = _renderer.Render(service, request.Title, style);
 
             _logger.LogInformation(
                 "Parsed {ConsumerName} with {DependencyCount} injected dependenc(ies) from {ServicePath}.",
