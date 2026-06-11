@@ -7,9 +7,10 @@ namespace Cast.Cli.Services;
 /// <summary>
 /// Renders a <see cref="SequenceDiagram"/> as PlantUML (<c>@startuml … @enduml</c>) source.
 /// Every diagram runs the teoz engine (<c>!pragma teoz true</c>) with a default font size of 10,
-/// and wraps the non-actor participants in a double nested box (outer/inner colors from
-/// <see cref="DiagramStyle"/>). Actors always stay outside the boxes, so they are declared
-/// first — the box must be one contiguous block.
+/// colors every lifeline <see cref="DiagramStyle.ParticipantColor"/>, and wraps the non-actor
+/// participants in a double nested box (outer/inner colors from <see cref="DiagramStyle"/>).
+/// Actors always stay outside the boxes, so they are declared first — the box must be one
+/// contiguous block.
 /// Output uses <c>\n</c> line endings for deterministic, platform-independent results.
 /// </summary>
 public sealed class PlantUmlSequenceRenderer : ISequenceDiagramRenderer
@@ -92,9 +93,10 @@ public sealed class PlantUmlSequenceRenderer : ISequenceDiagramRenderer
     private string RenderParticipant(Participant participant)
     {
         string keyword = _kinds.KeywordFor(participant.Kind);
-        return participant.DisplayName is null
+        string declaration = participant.DisplayName is null
             ? $"{keyword} {participant.Alias}"
             : $"{keyword} \"{participant.DisplayName}\" as {participant.Alias}";
+        return $"{declaration} {DiagramStyle.ParticipantColor}";
     }
 
     private static string RenderMessage(Message message)

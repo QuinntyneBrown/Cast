@@ -17,6 +17,12 @@ public sealed record DiagramStyle(
     public const string DefaultOuterBoxColor = "#PHYSICAL";
     public const string DefaultInnerBoxColor = "#AZURE";
 
+    /// <summary>
+    /// The fixed background color of every lifeline declaration (participants and actors alike).
+    /// Part of the house style, so it is not overridable from the command line.
+    /// </summary>
+    public const string ParticipantColor = "#63BEF2";
+
     /// <summary>The style used when the command line overrides nothing.</summary>
     public static DiagramStyle Default { get; } = new();
 

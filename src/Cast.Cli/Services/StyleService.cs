@@ -137,7 +137,7 @@ public sealed class StyleService : IStyleService
 
     private static string Describe(StylerResult result)
     {
-        var changes = new List<string>(3);
+        var changes = new List<string>(4);
         if (result.AppliedTeozPragma)
         {
             changes.Add("teoz pragma");
@@ -146,6 +146,11 @@ public sealed class StyleService : IStyleService
         if (result.AppliedFontSize)
         {
             changes.Add("font size");
+        }
+
+        if (result.AppliedParticipantColors)
+        {
+            changes.Add("participant colors");
         }
 
         if (result.AppliedBoxes)

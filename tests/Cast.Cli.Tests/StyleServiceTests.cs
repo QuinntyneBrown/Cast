@@ -73,8 +73,8 @@ public sealed class StyleServiceTests : IDisposable
     private const string ClassDiagram = "@startuml\nclass Order {\n  +id : int\n}\n@enduml\n";
 
     private const string StyledSequence =
-        "@startuml\n!pragma teoz true\nskinparam defaultFontSize 10\nactor U\n" +
-        "box #PHYSICAL\n  box #AZURE\n    participant A\n  end box\nend box\nU -> A : go\n@enduml\n";
+        "@startuml\n!pragma teoz true\nskinparam defaultFontSize 10\nactor U #63BEF2\n" +
+        "box #PHYSICAL\n  box #AZURE\n    participant A #63BEF2\n  end box\nend box\nU -> A : go\n@enduml\n";
 
     [Fact]
     public async Task ExecuteAsync_SingleSequenceFile_IsRestyledInPlace()
@@ -88,8 +88,8 @@ public sealed class StyleServiceTests : IDisposable
         string updated = await File.ReadAllTextAsync(file);
         Assert.Contains("!pragma teoz true", updated);
         Assert.Contains("skinparam defaultFontSize 10", updated);
-        Assert.Contains("box #PHYSICAL\n  box #AZURE\n    participant A\n  end box\nend box", updated);
-        Assert.Contains("actor U\nbox #PHYSICAL", updated); // actor outside the box
+        Assert.Contains("box #PHYSICAL\n  box #AZURE\n    participant A #63BEF2\n  end box\nend box", updated);
+        Assert.Contains("actor U #63BEF2\nbox #PHYSICAL", updated); // actor outside the box
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public sealed class StyleServiceTests : IDisposable
         await CreateService(logger: logger).ExecuteAsync(new StyleRequest(_root), CancellationToken.None);
 
         Assert.Single(logger.Messages, m =>
-            m.StartsWith("Updated") && m.EndsWith("added teoz pragma, font size, participant boxes."));
+            m.StartsWith("Updated") && m.EndsWith("added teoz pragma, font size, participant colors, participant boxes."));
         Assert.Single(logger.Messages, m => m.StartsWith("Unchanged") && m.Contains("already styled"));
         Assert.Single(logger.Messages, m => m.Contains("not a PlantUML sequence diagram"));
         Assert.Single(logger.Messages, m => m.Contains("it contains multiple @startuml blocks"));

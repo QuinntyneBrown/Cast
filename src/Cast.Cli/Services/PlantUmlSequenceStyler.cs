@@ -7,7 +7,7 @@ using Cast.Cli.Models;
 namespace Cast.Cli.Services;
 
 /// <summary>
-/// Default <see cref="ISequenceDiagramStyler"/>. Rewrites an existing sequence diagram in three
+/// Default <see cref="ISequenceDiagramStyler"/>. Rewrites an existing sequence diagram in four
 /// independent, idempotent steps:
 /// <list type="number">
 /// <item><c>!pragma teoz true</c> is inserted directly after <c>@startuml</c> unless a teoz
@@ -15,6 +15,10 @@ namespace Cast.Cli.Services;
 /// <item><c>skinparam defaultFontSize 10</c> is inserted after the pragma — or after the last
 /// <c>!theme</c> line so the font size still wins over the theme — unless any
 /// <c>defaultFontSize</c> setting already exists.</item>
+/// <item>Every lifeline declaration that carries no color of its own gains the house
+/// participant color (<see cref="DiagramStyle.ParticipantColor"/>). A declaration with any
+/// <c>#</c> token outside quotes — an explicit color or a colored stereotype — keeps what it
+/// has.</item>
 /// <item>The explicitly declared non-actor lifelines are wrapped in the double nested box
 /// (actors stay outside, declared first, matching the generator's convention). This step is
 /// skipped when any <c>box</c> already exists, when there are no non-actor declarations, or when
@@ -56,21 +60,22 @@ public sealed class PlantUmlSequenceStyler : ISequenceDiagramStyler
         // bookkeeping isn't worth the risk of a half-applied style.
         if (Effective(lines).Count(line => StartUml.IsMatch(line.Trimmed)) != 1)
         {
-            return new StylerResult(content, false, false, false,
+            return new StylerResult(content, false, false, false, false,
                 SkipReason: "it contains multiple @startuml blocks");
         }
 
         bool appliedPragma = InsertTeozPragma(lines);
         bool appliedFontSize = InsertDefaultFontSize(lines);
+        bool appliedColors = ColorLifelines(lines);
         bool appliedBoxes = WrapLifelinesInBoxes(lines, style);
 
-        if (!appliedPragma && !appliedFontSize && !appliedBoxes)
+        if (!appliedPragma && !appliedFontSize && !appliedColors && !appliedBoxes)
         {
-            return new StylerResult(content, false, false, false);
+            return new StylerResult(content, false, false, false, false);
         }
 
         string result = string.Join(newline, lines) + (endsWithNewline ? newline : string.Empty);
-        return new StylerResult(result, appliedPragma, appliedFontSize, appliedBoxes);
+        return new StylerResult(result, appliedPragma, appliedFontSize, appliedColors, appliedBoxes);
     }
 
     private static bool InsertTeozPragma(List<string> lines)
@@ -113,6 +118,48 @@ public sealed class PlantUmlSequenceStyler : ISequenceDiagramStyler
 
         lines.Insert(insertAt, "skinparam defaultFontSize 10");
         return true;
+    }
+
+    private static bool ColorLifelines(List<string> lines)
+    {
+        bool applied = false;
+        foreach ((int index, string trimmed) in Effective(lines).ToList())
+        {
+            if (!LifelineDeclaration.IsMatch(trimmed) ||
+                trimmed.EndsWith('[') || // multi-line declaration — too exotic to rewrite
+                ContainsColorToken(trimmed))
+            {
+                continue;
+            }
+
+            lines[index] = $"{lines[index].TrimEnd()} {DiagramStyle.ParticipantColor}";
+            applied = true;
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Whether the declaration already carries a <c>#</c> token outside quotes — an explicit
+    /// color, or a colored stereotype like <c>&lt;&lt; (S,#ADD1B2) &gt;&gt;</c>. Either way the
+    /// declaration is left alone; a <c>#</c> inside a quoted display name does not count.
+    /// </summary>
+    private static bool ContainsColorToken(string declaration)
+    {
+        bool inQuotes = false;
+        foreach (char c in declaration)
+        {
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+            }
+            else if (c == '#' && !inQuotes)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool WrapLifelinesInBoxes(List<string> lines, DiagramStyle style)

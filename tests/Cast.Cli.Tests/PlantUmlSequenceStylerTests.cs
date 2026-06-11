@@ -33,11 +33,11 @@ public sealed class PlantUmlSequenceStylerTests
             "skinparam defaultFontSize 10",
             "title Checkout",
             "",
-            "actor User",
+            "actor User #63BEF2",
             "box #PHYSICAL",
             "  box #AZURE",
-            "    participant \"Order Service\" as OS",
-            "    database DB",
+            "    participant \"Order Service\" as OS #63BEF2",
+            "    database DB #63BEF2",
             "  end box",
             "end box",
             "",
@@ -50,6 +50,7 @@ public sealed class PlantUmlSequenceStylerTests
         Assert.Equal(expected, result.Content);
         Assert.True(result.AppliedTeozPragma);
         Assert.True(result.AppliedFontSize);
+        Assert.True(result.AppliedParticipantColors);
         Assert.True(result.AppliedBoxes);
     }
 
@@ -75,10 +76,10 @@ public sealed class PlantUmlSequenceStylerTests
             "!pragma teoz true",
             "skinparam defaultFontSize 10",
             "",
-            "actor User",
+            "actor User #63BEF2",
             "box #PHYSICAL",
             "  box #AZURE",
-            "    participant \"Order Service\" as OS",
+            "    participant \"Order Service\" as OS #63BEF2",
             "  end box",
             "end box",
             "",
@@ -217,7 +218,7 @@ public sealed class PlantUmlSequenceStylerTests
             "@startuml\nparticipant A\nA -> A : x\n@enduml\n",
             new DiagramStyle("#Gray", "#White"));
 
-        Assert.Contains("box #Gray\n  box #White\n    participant A\n  end box\nend box\n", result.Content);
+        Assert.Contains("box #Gray\n  box #White\n    participant A #63BEF2\n  end box\nend box\n", result.Content);
     }
 
     [Fact]
@@ -234,11 +235,11 @@ public sealed class PlantUmlSequenceStylerTests
         StylerResult result = Apply(input);
 
         Assert.Contains(string.Join("\n",
-            "actor U",
+            "actor U #63BEF2",
             "box #PHYSICAL",
             "  box #AZURE",
-            "    participant A",
-            "    participant B",
+            "    participant A #63BEF2",
+            "    participant B #63BEF2",
             "  end box",
             "end box"), result.Content);
     }
@@ -308,7 +309,7 @@ public sealed class PlantUmlSequenceStylerTests
         StylerResult result = Apply(input);
 
         Assert.True(result.AppliedBoxes);
-        Assert.Contains("    participant A\n    participant B\n", result.Content);
+        Assert.Contains("    participant A #63BEF2\n    participant B #63BEF2\n", result.Content);
     }
 
     [Fact]
@@ -319,6 +320,67 @@ public sealed class PlantUmlSequenceStylerTests
         StylerResult result = Apply(input);
 
         Assert.Contains("    participant \"P\" as P #red\n", result.Content);
+    }
+
+    // ----- lifeline colors ------------------------------------------------------------------------
+
+    [Fact]
+    public void Apply_BoxBackOff_StillColorsTheLifelines()
+    {
+        // Declarations interleaved with a message: the box step backs off, the color step doesn't.
+        string input = "@startuml\nparticipant A\nA -> A : early\nparticipant B\n@enduml\n";
+
+        StylerResult result = Apply(input);
+
+        Assert.False(result.AppliedBoxes);
+        Assert.True(result.AppliedParticipantColors);
+        Assert.Contains("participant A #63BEF2", result.Content);
+        Assert.Contains("participant B #63BEF2", result.Content);
+    }
+
+    [Fact]
+    public void Apply_AlreadyColoredLifelines_AreNotRecolored()
+    {
+        string input = string.Join("\n",
+            "@startuml",
+            "!pragma teoz true",
+            "skinparam defaultFontSize 10",
+            "actor U #Gold",
+            "box #PHYSICAL",
+            "  box #AZURE",
+            "    participant A #red",
+            "  end box",
+            "end box",
+            "U -> A : x",
+            "@enduml") + "\n";
+
+        StylerResult result = Apply(input);
+
+        Assert.False(result.AppliedParticipantColors);
+        Assert.False(result.Changed);
+        Assert.DoesNotContain("#63BEF2", result.Content);
+    }
+
+    [Fact]
+    public void Apply_HashInsideQuotedDisplayName_DoesNotCountAsColor()
+    {
+        string input = "@startuml\nparticipant \"Issue #42\" as I\nI -> I : x\n@enduml\n";
+
+        StylerResult result = Apply(input);
+
+        Assert.True(result.AppliedParticipantColors);
+        Assert.Contains("participant \"Issue #42\" as I #63BEF2", result.Content);
+    }
+
+    [Fact]
+    public void Apply_ColoredStereotype_IsLeftAlone()
+    {
+        string input = "@startuml\nparticipant A << (S,#ADD1B2) >>\nA -> A : x\n@enduml\n";
+
+        StylerResult result = Apply(input);
+
+        Assert.False(result.AppliedParticipantColors);
+        Assert.DoesNotContain("#63BEF2", result.Content);
     }
 
     // ----- formatting fidelity ------------------------------------------------------------------

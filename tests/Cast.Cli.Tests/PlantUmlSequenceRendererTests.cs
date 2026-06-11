@@ -29,7 +29,7 @@ public sealed class PlantUmlSequenceRendererTests
 
         string output = CreateRenderer().Render(diagram);
 
-        Assert.Contains("actor U", output);
+        Assert.Contains("actor U #63BEF2", output);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class PlantUmlSequenceRendererTests
 
         string output = CreateRenderer().Render(diagram);
 
-        Assert.Contains("database \"Main Database\" as DB", output);
+        Assert.Contains("database \"Main Database\" as DB #63BEF2", output);
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public sealed class PlantUmlSequenceRendererTests
 
         string output = CreateRenderer().Render(diagram);
 
-        Assert.Contains("box #PHYSICAL\n  box #AZURE\n    participant A\n    database DB\n  end box\nend box\n", output);
+        Assert.Contains("box #PHYSICAL\n  box #AZURE\n    participant A #63BEF2\n    database DB #63BEF2\n  end box\nend box\n", output);
     }
 
     [Fact]
@@ -163,8 +163,8 @@ public sealed class PlantUmlSequenceRendererTests
         string[] lines = LinesOf(CreateRenderer().Render(diagram));
 
         // The actor is declared before the box opens, never inside it.
-        Assert.Equal("actor U", Assert.Single(lines, l => l.Contains("actor U")));
-        Assert.True(Array.IndexOf(lines, "actor U") < Array.IndexOf(lines, "box #PHYSICAL"));
+        Assert.Equal("actor U #63BEF2", Assert.Single(lines, l => l.Contains("actor U")));
+        Assert.True(Array.IndexOf(lines, "actor U #63BEF2") < Array.IndexOf(lines, "box #PHYSICAL"));
     }
 
     [Fact]
@@ -189,6 +189,22 @@ public sealed class PlantUmlSequenceRendererTests
         Assert.Contains("box #DeepSkyBlue\n  box #FFFFFF\n", output);
         Assert.DoesNotContain("#PHYSICAL", output);
         Assert.DoesNotContain("#AZURE", output);
+    }
+
+    [Fact]
+    public void Render_EveryLifelineDeclaration_CarriesTheHouseParticipantColor()
+    {
+        var diagram = new SequenceDiagram(
+            [
+                new Participant("U", ParticipantKind.Actor),
+                new Participant("A", ParticipantKind.Participant),
+                new Participant("DB", ParticipantKind.Database, "Main Database"),
+            ],
+            []);
+
+        string[] lines = LinesOf(CreateRenderer().Render(diagram));
+
+        Assert.Equal(3, Array.FindAll(lines, l => l.TrimEnd().EndsWith(" #63BEF2")).Length);
     }
 
     // Golden master: pins the full output — ordering, header comment, and blank-line separators.
@@ -217,10 +233,10 @@ public sealed class PlantUmlSequenceRendererTests
             "title Checkout\n" +
             "autonumber\n" +
             "\n" +
-            "actor User\n" +
+            "actor User #63BEF2\n" +
             "box #PHYSICAL\n" +
             "  box #AZURE\n" +
-            "    participant \"Order Service\" as OS\n" +
+            "    participant \"Order Service\" as OS #63BEF2\n" +
             "  end box\n" +
             "end box\n" +
             "\n" +

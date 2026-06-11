@@ -10,8 +10,9 @@ namespace Cast.Cli.Services;
 /// through <c>inject()</c> while executing (a "pull"). In both cases the diagram names every
 /// injected service and token so the wiring is explicit.
 /// Every diagram runs the teoz engine (<c>!pragma teoz true</c>) with a default font size of 10,
-/// and wraps the participant lifelines in a double nested box (outer/inner colors from
-/// <see cref="DiagramStyle"/>); an actor caller stays outside the boxes.
+/// colors every lifeline <see cref="DiagramStyle.ParticipantColor"/>, and wraps the participant
+/// lifelines in a double nested box (outer/inner colors from <see cref="DiagramStyle"/>); an
+/// actor caller stays outside the boxes.
 /// Output uses <c>\n</c> line endings for deterministic, platform-independent results.
 /// </summary>
 public sealed class PlantUmlAngularDiagramRenderer : IAngularDiagramRenderer
@@ -34,6 +35,7 @@ public sealed class PlantUmlAngularDiagramRenderer : IAngularDiagramRenderer
         };
 
         (string callerDecl, string ask) = Caller(service);
+        callerDecl = $"{callerDecl} {DiagramStyle.ParticipantColor}";
 
         // Participant lifelines live inside the double box; an actor caller stays outside it.
         var boxed = new List<string>();
@@ -46,8 +48,8 @@ public sealed class PlantUmlAngularDiagramRenderer : IAngularDiagramRenderer
             boxed.Add(callerDecl);
         }
 
-        boxed.Add("participant \"Angular Injector\\n(the built-in DI container)\" as DI");
-        boxed.Add($"participant \"{service.Name}\\n(the consumer)\" as Consumer");
+        boxed.Add($"participant \"Angular Injector\\n(the built-in DI container)\" as DI {DiagramStyle.ParticipantColor}");
+        boxed.Add($"participant \"{service.Name}\\n(the consumer)\" as Consumer {DiagramStyle.ParticipantColor}");
         DeclareDependencies(boxed, service.Dependencies);
 
         lines.Add($"box {style.OuterBoxColor}");
@@ -192,7 +194,7 @@ public sealed class PlantUmlAngularDiagramRenderer : IAngularDiagramRenderer
                 role += ", optional";
             }
 
-            lines.Add($"participant \"{dep.Name}\\n({role})\" as D{index + 1}");
+            lines.Add($"participant \"{dep.Name}\\n({role})\" as D{index + 1} {DiagramStyle.ParticipantColor}");
         }
     }
 
