@@ -220,6 +220,36 @@ A functional provider (an interceptor, guard, or resolver) is rendered with the 
 it actually follows — the function runs inside an injection context and calls `inject(...)` for each
 dependency it needs.
 
+### `style`
+
+Applies the default styling to **existing** PlantUML sequence diagrams, in place. Pass a single
+`.puml` file, or a folder — every `.puml` file beneath it (recursively) is checked. Each file that
+is a sequence diagram gains whichever pieces of the house style it is missing:
+
+- `!pragma teoz true` directly after `@startuml`;
+- `skinparam defaultFontSize 10` (placed after any `!theme` so the size still wins);
+- the double nested box around the explicitly declared non-actor participants
+  (actors are hoisted above the box and stay outside it).
+
+```pwsh
+cast style docs/diagrams                      # restyle every sequence .puml under docs/diagrams
+cast style flow.puml --outer-box-color Gray   # single file, custom outer box color
+```
+
+| Option | Description |
+| --- | --- |
+| `path` (argument) | Required. A `.puml` file, or a folder scanned recursively for `.puml` files. |
+| `--outer-box-color <color>` | Color of the outer box wrapping the non-actor participants. Defaults to `#PHYSICAL`. |
+| `--inner-box-color <color>` | Color of the inner box wrapping the non-actor participants. Defaults to `#AZURE`. |
+
+The command is conservative and idempotent: re-running it changes nothing, non-sequence diagrams
+(class, component, state, activity, …) are left byte-for-byte untouched, files that already have a
+teoz pragma, a `defaultFontSize` setting, or any `box` keep what they have, and when participant
+declarations are interleaved with messages or comments the box step backs off rather than reorder
+the diagram (the other rules still apply). Files containing multiple `@startuml` blocks are
+skipped. Line endings (CRLF/LF), trailing-newline-ness, and the file's encoding (UTF-8 with or
+without BOM, UTF-16/32) are all preserved.
+
 ## Exit Codes
 
 | Code | Meaning |

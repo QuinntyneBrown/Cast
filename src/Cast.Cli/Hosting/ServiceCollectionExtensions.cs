@@ -33,10 +33,19 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAngularDiagramRenderer, PlantUmlAngularDiagramRenderer>();
         services.AddSingleton<IAngularDiagramService, AngularDiagramService>();
 
+        // Restyling existing diagrams (the `style` command): locate .puml files, classify, rewrite
+        // in place through the encoding-preserving editor.
+        services.AddSingleton<IPumlFileLocator, FileSystemPumlFileLocator>();
+        services.AddSingleton<ITextFileEditor, FileSystemTextFileEditor>();
+        services.AddSingleton<ISequenceDiagramDetector, SequenceDiagramDetector>();
+        services.AddSingleton<ISequenceDiagramStyler, PlantUmlSequenceStyler>();
+        services.AddSingleton<IStyleService, StyleService>();
+
         // Commands — every ICliCommand is discovered by RootCommandFactory.
         services.AddSingleton<ICliCommand, GenerateCommand>();
         services.AddSingleton<ICliCommand, ListKindsCommand>();
         services.AddSingleton<ICliCommand, NgCommand>();
+        services.AddSingleton<ICliCommand, StyleCommand>();
 
         services.AddSingleton<RootCommandFactory>();
 

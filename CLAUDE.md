@@ -10,7 +10,9 @@ writing `cast.puml` in the current directory by default (`--stdout` prints inste
 `kinds` command lists the participant kinds; the `ng` command inspects an Angular `.ts` file and
 renders a narrated diagram of how Angular injects dependencies into any `inject()`-using construct
 (service, component, directive, pipe, interceptor, guard, resolver, or exported function), writing a
-`.puml` beside the source by default (`--stdout` prints instead). The design follows SOLID with
+`.puml` beside the source by default (`--stdout` prints instead); the `style` command retrofits the
+house styling onto existing `.puml` sequence diagrams in place (one file, or a folder scanned
+recursively), leaving non-sequence diagrams untouched. The design follows SOLID with
 `Microsoft.Extensions.DependencyInjection` and a one-command-per-file layout. Solution: `Cast.sln`.
 
 ## Commands
@@ -23,6 +25,7 @@ build must stay warning-clean.
 dotnet build Cast.sln                                         # build all projects
 dotnet run --project src/Cast.Cli -- generate -p actor:User -p OS   # writes cast.puml in the cwd
 dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # writes foo.service.puml beside it
+dotnet run --project src/Cast.Cli -- style docs/diagrams            # restyles sequence .puml files in place
 dotnet test Cast.sln                                          # run all tests
 ```
 
@@ -43,18 +46,24 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   point), `RootCommandFactory` (assembles the root command from every registered `ICliCommand`),
   and `ExitCode`.
 - `src/Cast.Cli/Commands/` — one `ICliCommand` per file (`GenerateCommand`, `ListKindsCommand`,
-  `NgCommand`). A command maps parsed options to a request record and delegates to an orchestrator
-  service; no `System.CommandLine` type leaks into the core.
+  `NgCommand`, `StyleCommand`). A command maps parsed options to a request record and delegates to
+  an orchestrator service; no `System.CommandLine` type leaks into the core.
 - `src/Cast.Cli/Services/` — focused, interface-backed services: kind catalog, participant and
   message parsers, sample-flow generator, renderer (`ISequenceDiagramRenderer`), writer
   (`IDiagramWriter`), and the `IScaffoldService` orchestrator. The `ng` command adds its own set:
   `IAngularServiceParser` (a comment/string-aware scanner that extracts a consumer and its injected
   dependencies — no Node sidecar), `IAngularDiagramRenderer` (the narrated DI diagram),
   `ISourceFileReader` (the read-side I/O boundary, mirroring `IDiagramWriter`), and the
-  `IAngularDiagramService` orchestrator.
+  `IAngularDiagramService` orchestrator. The `style` command adds `IPumlFileLocator` (file vs.
+  recursive folder discovery), `ISequenceDiagramDetector` (conservative is-this-a-sequence-diagram
+  classification), `ISequenceDiagramStyler` (the idempotent in-place restyle transform; shared
+  comment/note-aware line scanning lives in the internal `PlantUmlScanner`), `ITextFileEditor`
+  (the in-place read/write boundary that preserves the file's encoding and BOM), and the
+  `IStyleService` orchestrator.
 - `src/Cast.Cli/Models/` — immutable records (`Participant`, `Message`, `SequenceDiagram`,
-  `ScaffoldRequest`, `ParticipantKind`, `DiagramStyle`; plus `AngularService`, `AngularDependency`,
-  `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command).
+  `ScaffoldRequest`, `ParticipantKind`, `DiagramStyle`; `AngularService`, `AngularDependency`,
+  `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command; `StyleRequest`,
+  `StylerResult` for the `style` command).
 - `src/Cast.Cli/Diagnostics/` — `DiagramFormatException` for user-facing input errors.
 
 Conventions: both commands write a `.puml` file by default (`--stdout` prints the diagram to

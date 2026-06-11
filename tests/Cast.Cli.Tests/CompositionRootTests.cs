@@ -16,6 +16,7 @@ public sealed class CompositionRootTests
         // Resolving the orchestrators forces the whole graph (parsers, renderer, writer) to resolve.
         Assert.NotNull(provider.GetRequiredService<IScaffoldService>());
         Assert.NotNull(provider.GetRequiredService<IAngularDiagramService>());
+        Assert.NotNull(provider.GetRequiredService<IStyleService>());
         Assert.NotNull(provider.GetRequiredService<RootCommandFactory>());
     }
 
@@ -30,5 +31,6 @@ public sealed class CompositionRootTests
         Assert.Contains("generate", names);
         Assert.Contains("kinds", names);
         Assert.Contains("ng", names);
+        Assert.Contains("style", names);
     }
 }
