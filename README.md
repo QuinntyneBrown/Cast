@@ -23,7 +23,7 @@ dotnet tool install --global Cast.Cli
 Or pin the currently published latest version:
 
 ```pwsh
-dotnet tool install --global Cast.Cli --version 1.1.17
+dotnet tool install --global Cast.Cli --version 1.2.18
 ```
 
 After installation, run Cast with the `cast` command:
@@ -322,6 +322,18 @@ supplied; `--autonumber` can only switch numbering on. When neither the template
 line supplies messages, the placeholder flow kicks in exactly like `generate` (suppress it with
 `--no-sample`). The rendered diagram lands in `cast.puml` by default — `-o`, `--stdout`, `--force`,
 and `--no-open` behave exactly as they do for `generate`.
+
+### `explorer`
+
+Opens the folder where templates are stored in Visual Studio Code (creating the folder first if
+no template has been saved yet), so the JSON files are one command away from hand editing:
+
+```pwsh
+cast explorer
+```
+
+Requires the `code` command on the PATH (in VS Code: *Shell Command: Install 'code' command in
+PATH*); a missing `code` command is reported as an error.
 
 ## Exit Codes
 

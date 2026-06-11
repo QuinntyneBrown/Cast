@@ -271,6 +271,33 @@ public sealed class FileSystemTemplateStoreTests
     }
 
     [Fact]
+    public void EnsureRootDirectory_CreatesMissingFolder_AndReturnsItsPath()
+    {
+        string root = TempRoot();
+        var store = new FileSystemTemplateStore(root);
+
+        try
+        {
+            string ensured = store.EnsureRootDirectory();
+
+            Assert.Equal(root, ensured);
+            Assert.True(Directory.Exists(root));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public void EnsureRootDirectory_UnresolvableRoot_ThrowsIOException()
+    {
+        var store = new FileSystemTemplateStore(string.Empty);
+
+        Assert.Throws<IOException>(() => store.EnsureRootDirectory());
+    }
+
+    [Fact]
     public async Task NameTooLong_ThrowsDiagramFormatException()
     {
         var store = new FileSystemTemplateStore(TempRoot());

@@ -40,9 +40,9 @@ jobs:
           # Patch = number of first-parent commits on main, so each commit to main bumps it
           # by exactly one (stable across squash/merge PRs). The .NET SDK appends +<sha> to the
           # informational version, so `cast --version` stays traceable to the exact commit.
-          # Minor line 1.1: named templates (CRUD + render) and Notepad auto-open.
+          # Minor line 1.2: the explorer command (open the templates folder in VS Code).
           PATCH=$(git rev-list --count --first-parent HEAD)
-          VERSION="1.1.$PATCH"
+          VERSION="1.2.$PATCH"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $VERSION"
 

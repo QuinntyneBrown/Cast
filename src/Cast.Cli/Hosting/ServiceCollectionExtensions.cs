@@ -37,8 +37,11 @@ public static class ServiceCollectionExtensions
 
         // Named templates (the `template` command): persist diagram definitions as JSON under the
         // per-user application-data folder and render them through the scaffolding pipeline.
+        // The `explorer` command opens that folder in VS Code for hand editing.
         services.AddSingleton<ITemplateStore>(_ => new FileSystemTemplateStore());
         services.AddSingleton<ITemplateService, TemplateService>();
+        services.AddSingleton<IFolderOpener, VsCodeFolderOpener>();
+        services.AddSingleton<IExplorerService, ExplorerService>();
 
         // Restyling existing diagrams (the `style` command): locate .puml files, classify, rewrite
         // in place through the encoding-preserving editor.
@@ -54,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICliCommand, NgCommand>();
         services.AddSingleton<ICliCommand, StyleCommand>();
         services.AddSingleton<ICliCommand, TemplateCommand>();
+        services.AddSingleton<ICliCommand, ExplorerCommand>();
 
         services.AddSingleton<RootCommandFactory>();
 

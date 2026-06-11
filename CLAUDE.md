@@ -15,7 +15,8 @@ house styling onto existing `.puml` sequence diagrams in place (one file, or a f
 recursively), leaving non-sequence diagrams untouched; the `template` command persists named
 diagram templates as JSON under `%APPDATA%\cast\templates` (full CRUD via `save`/`list`/`show`/
 `delete` subcommands) and renders one through the scaffolding pipeline when invoked with `--name`,
-render-time options overriding the stored values (`-m` replaces stored messages entirely). Every
+render-time options overriding the stored values (`-m` replaces stored messages entirely); the
+`explorer` command opens the templates folder in VS Code (created first when missing). Every
 command that writes a `.puml` file opens it in Notepad by default on Windows (`--no-open`
 suppresses; `--stdout` never opens). The design follows SOLID with
 `Microsoft.Extensions.DependencyInjection` and a one-command-per-file layout. Solution: `Cast.sln`.
@@ -33,6 +34,7 @@ dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # writes foo
 dotnet run --project src/Cast.Cli -- style docs/diagrams            # restyles sequence .puml files in place
 dotnet run --project src/Cast.Cli -- template save --name acme -p actor:User -p OS   # upsert a template
 dotnet run --project src/Cast.Cli -- template --name acme -m "User -> OS : order"    # render it to cast.puml
+dotnet run --project src/Cast.Cli -- explorer                                        # open the templates folder in VS Code
 dotnet test Cast.sln                                          # run all tests
 ```
 
@@ -53,7 +55,8 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   point), `RootCommandFactory` (assembles the root command from every registered `ICliCommand`),
   and `ExitCode`.
 - `src/Cast.Cli/Commands/` — one `ICliCommand` per file (`GenerateCommand`, `ListKindsCommand`,
-  `NgCommand`, `StyleCommand`, `TemplateCommand`). A command maps parsed options to a request
+  `NgCommand`, `StyleCommand`, `TemplateCommand`, `ExplorerCommand`). A command maps parsed
+  options to a request
   record and delegates to an orchestrator service; no `System.CommandLine` type leaks into the
   core. `TemplateCommand` is a command family: the parent command's own action renders
   (`cast template --name X`), and `save`/`list`/`show`/`delete` are subcommands built inside the
@@ -78,7 +81,9 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   whitelist-validated names — no traversal, no reserved device names) and the `ITemplateService`
   orchestrator (validates before persisting so a bad template can't be saved; rendering merges the
   stored template with render-time overrides into a `ScaffoldRequest` and delegates to
-  `IScaffoldService`).
+  `IScaffoldService`). The `explorer` command adds `IFolderOpener` (`VsCodeFolderOpener`: launches
+  `code <folder>` via ShellExecute; unlike `IFileOpener` a failed launch throws, because opening
+  is the command's whole purpose) and the `IExplorerService` orchestrator.
 - `src/Cast.Cli/Models/` — immutable records (`Participant`, `Message`, `SequenceDiagram`,
   `ScaffoldRequest`, `ParticipantKind`, `DiagramStyle`; `AngularService`, `AngularDependency`,
   `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command; `StyleRequest`,

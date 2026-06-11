@@ -158,6 +158,23 @@ public sealed class FileSystemTemplateStore : ITemplateStore
         }
     }
 
+    /// <inheritdoc />
+    public string EnsureRootDirectory()
+    {
+        string root = ResolveRoot();
+
+        try
+        {
+            Directory.CreateDirectory(root);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new IOException($"Access to '{root}' was denied.", ex);
+        }
+
+        return root;
+    }
+
     private static string DefaultRootDirectory()
     {
         string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);

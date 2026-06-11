@@ -727,7 +727,7 @@
           "build/net8.0/xunit.runner.visualstudio.props": {}
         }
       },
-      "Cast.Cli/1.1.0": {
+      "Cast.Cli/1.2.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
         "dependencies": {
@@ -1794,7 +1794,7 @@
         "xunit.runner.visualstudio.nuspec"
       ]
     },
-    "Cast.Cli/1.1.0": {
+    "Cast.Cli/1.2.0": {
       "type": "project",
       "path": "../../src/Cast.Cli/Cast.Cli.csproj",
       "msbuildProject": "../../src/Cast.Cli/Cast.Cli.csproj"
@@ -1802,7 +1802,7 @@
   },
   "projectFileDependencyGroups": {
     "net8.0": [
-      "Cast.Cli >= 1.1.0",
+      "Cast.Cli >= 1.2.0",
       "Microsoft.NET.Test.Sdk >= 17.14.1",
       "coverlet.collector >= 6.0.4",
       "xunit >= 2.9.3",

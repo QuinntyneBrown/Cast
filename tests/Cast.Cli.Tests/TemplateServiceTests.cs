@@ -45,6 +45,12 @@ public sealed class TemplateServiceTests
             return Task.FromResult(Templates.Remove(name));
         }
 
+        public string EnsureRootDirectory()
+        {
+            ThrowIfConfigured();
+            return "fake-root";
+        }
+
         private void ThrowIfConfigured()
         {
             if (ThrowOnAccess is not null)

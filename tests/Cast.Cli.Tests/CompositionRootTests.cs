@@ -18,6 +18,7 @@ public sealed class CompositionRootTests
         Assert.NotNull(provider.GetRequiredService<IAngularDiagramService>());
         Assert.NotNull(provider.GetRequiredService<IStyleService>());
         Assert.NotNull(provider.GetRequiredService<ITemplateService>());
+        Assert.NotNull(provider.GetRequiredService<IExplorerService>());
         Assert.NotNull(provider.GetRequiredService<IFileOpener>());
         Assert.NotNull(provider.GetRequiredService<RootCommandFactory>());
     }
@@ -35,6 +36,7 @@ public sealed class CompositionRootTests
         Assert.Contains("ng", names);
         Assert.Contains("style", names);
         Assert.Contains("template", names);
+        Assert.Contains("explorer", names);
     }
 
     [Fact]

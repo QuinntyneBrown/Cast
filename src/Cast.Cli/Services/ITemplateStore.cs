@@ -25,4 +25,10 @@ public interface ITemplateStore
 
     /// <summary>Deletes the template named <paramref name="name"/>; <see langword="false"/> when it did not exist.</summary>
     Task<bool> DeleteAsync(string name, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the folder templates are stored in, creating it when missing, and returns its
+    /// full path — so callers can point an editor at it even before the first save.
+    /// </summary>
+    string EnsureRootDirectory();
 }
