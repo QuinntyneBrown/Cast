@@ -57,6 +57,27 @@ public sealed class NgCommandTests
         Assert.True(request.Force);
         Assert.Equal("#LightGray", request.OuterBoxColor);
         Assert.Equal("#White", request.InnerBoxColor);
+        Assert.True(request.OpenInEditor); // no --no-open
+    }
+
+    [Fact]
+    public async Task Invoke_WithoutNoOpen_RequestsEditorOpen()
+    {
+        var fake = new CapturingAngularDiagramService();
+
+        await Invoke(fake, "-s", "a.service.ts");
+
+        Assert.True(Assert.IsType<AngularDiagramRequest>(fake.Captured).OpenInEditor);
+    }
+
+    [Fact]
+    public async Task Invoke_WithNoOpen_SuppressesEditorOpen()
+    {
+        var fake = new CapturingAngularDiagramService();
+
+        await Invoke(fake, "-s", "a.service.ts", "--no-open");
+
+        Assert.False(Assert.IsType<AngularDiagramRequest>(fake.Captured).OpenInEditor);
     }
 
     [Fact]

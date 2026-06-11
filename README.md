@@ -23,7 +23,7 @@ dotnet tool install --global Cast.Cli
 Or pin the currently published latest version:
 
 ```pwsh
-dotnet tool install --global Cast.Cli --version 1.0.8
+dotnet tool install --global Cast.Cli --version 1.1.17
 ```
 
 After installation, run Cast with the `cast` command:
@@ -32,6 +32,8 @@ After installation, run Cast with the `cast` command:
 cast --help
 cast generate -p actor:User -p OS -m "User -> OS : place order"
 cast ng --service projects/api/src/lib/services/dashboard.service.ts
+cast template save --name acme-ordering -p actor:User -p OS
+cast template --name acme-ordering -m "User -> OS : place order"
 ```
 
 Update an existing global install:
@@ -74,7 +76,8 @@ dotnet run --project src/Cast.Cli -- generate `
 ```
 
 By default the diagram is written to `cast.puml` in the current directory; pass `--stdout` to
-print it to standard output instead, or `-o <file>` to choose another path.
+print it to standard output instead, or `-o <file>` to choose another path. On Windows, every
+command that writes a `.puml` file opens it in Notepad right away — pass `--no-open` to skip that.
 
 Output:
 
@@ -86,11 +89,11 @@ skinparam defaultFontSize 10
 title Checkout
 autonumber
 
-actor User
+actor User #63BEF2
 box #PHYSICAL
   box #AZURE
-    participant "Order Service" as OS
-    database DB
+    participant "Order Service" as OS #63BEF2
+    database DB #63BEF2
   end box
 end box
 
@@ -99,10 +102,11 @@ OS -> DB : persist
 @enduml
 ```
 
-Every diagram runs the [teoz](https://plantuml.com/teoz) engine with a default font size of 10, and
-the non-actor participants are wrapped in a double nested box — outer `#PHYSICAL`, inner `#AZURE` by
-default. Actors always stay outside the boxes. Override the colors with `--outer-box-color` and
-`--inner-box-color` (a missing `#` prefix is added automatically).
+Every diagram runs the [teoz](https://plantuml.com/teoz) engine with a default font size of 10,
+every participant and actor is colored `#63BEF2`, and the non-actor participants are wrapped in a
+double nested box — outer `#PHYSICAL`, inner `#AZURE` by default. Actors always stay outside the
+boxes. Override the box colors with `--outer-box-color` and `--inner-box-color` (a missing `#`
+prefix is added automatically); the participant color is fixed.
 
 ## Commands
 
@@ -123,6 +127,7 @@ Scaffolds a PlantUML sequence diagram from participants and optional messages.
 | `--no-sample` | Disables placeholder messages when no `--message` values are supplied. |
 | `--outer-box-color <color>` | Color of the outer box wrapping the non-actor participants. Defaults to `#PHYSICAL`. |
 | `--inner-box-color <color>` | Color of the inner box wrapping the non-actor participants. Defaults to `#AZURE`. |
+| `--no-open` | Do not open the written file in Notepad (Windows only; opening is the default). |
 
 Participant examples:
 
@@ -174,9 +179,10 @@ Parsing is done in pure .NET — no Node runtime is required.
 | `--force` | Overwrite an existing output file. |
 | `--outer-box-color <color>` | Color of the outer box wrapping the non-actor participants. Defaults to `#PHYSICAL`. |
 | `--inner-box-color <color>` | Color of the inner box wrapping the non-actor participants. Defaults to `#AZURE`. |
+| `--no-open` | Do not open the written file in Notepad (Windows only; opening is the default). |
 
-By default the diagram is written next to the source as a `.puml` file; pass `--stdout` to print it
-to standard output instead.
+By default the diagram is written next to the source as a `.puml` file (and opened in Notepad on
+Windows); pass `--stdout` to print it to standard output instead.
 
 ```pwsh
 dotnet run --project src/Cast.Cli -- ng `
@@ -193,13 +199,13 @@ For an `@Injectable({ providedIn: 'root' })` service that injects `HttpClient` a
 skinparam defaultFontSize 10
 title How Angular injects dependencies into DashboardService
 
-actor "App\n(a component or service\nthat needs DashboardService)" as App
+actor "App\n(a component or service\nthat needs DashboardService)" as App #63BEF2
 box #PHYSICAL
   box #AZURE
-    participant "Angular Injector\n(the built-in DI container)" as DI
-    participant "DashboardService\n(the consumer)" as Consumer
-    participant "HttpClient\n(injected service)" as D1
-    participant "API_BASE_URL\n(injected token)" as D2
+    participant "Angular Injector\n(the built-in DI container)" as DI #63BEF2
+    participant "DashboardService\n(the consumer)" as Consumer #63BEF2
+    participant "HttpClient\n(injected service)" as D1 #63BEF2
+    participant "API_BASE_URL\n(injected token)" as D2 #63BEF2
   end box
 end box
 
@@ -228,6 +234,7 @@ is a sequence diagram gains whichever pieces of the house style it is missing:
 
 - `!pragma teoz true` directly after `@startuml`;
 - `skinparam defaultFontSize 10` (placed after any `!theme` so the size still wins);
+- the `#63BEF2` participant color on every lifeline declaration that has no color of its own;
 - the double nested box around the explicitly declared non-actor participants
   (actors are hoisted above the box and stay outside it).
 
@@ -244,11 +251,77 @@ cast style flow.puml --outer-box-color Gray   # single file, custom outer box co
 
 The command is conservative and idempotent: re-running it changes nothing, non-sequence diagrams
 (class, component, state, activity, …) are left byte-for-byte untouched, files that already have a
-teoz pragma, a `defaultFontSize` setting, or any `box` keep what they have, and when participant
-declarations are interleaved with messages or comments the box step backs off rather than reorder
-the diagram (the other rules still apply). Files containing multiple `@startuml` blocks are
+teoz pragma, a `defaultFontSize` setting, or any `box` keep what they have, a declaration that
+already carries a color (or a colored stereotype) keeps it, and when participant declarations are
+interleaved with messages or comments the box step backs off rather than reorder the diagram (the
+other rules still apply). Files containing multiple `@startuml` blocks are
 skipped. Line endings (CRLF/LF), trailing-newline-ness, and the file's encoding (UTF-8 with or
 without BOM, UTF-16/32) are all preserved.
+
+### `template`
+
+Saves named diagram templates — the cast of participants you always diagram with — and renders
+them on demand. Templates are stored as JSON under your user profile
+(`%APPDATA%\cast\templates\<name>.json` on Windows, `~/.config/cast/templates` elsewhere), so they
+are available from any directory.
+
+```pwsh
+# create (or update — save is an upsert)
+cast template save --name acme-ordering -p actor:User -p "OS:Order Service" -p database:DB -m "User -> OS : place order"
+
+# render: writes cast.puml in the current directory and opens it in Notepad
+cast template --name acme-ordering
+
+# render with this diagram's specific flow (replaces any stored messages)
+cast template --name acme-ordering -m "User -> OS : place order" -m "OS -> DB : persist" --force
+
+# manage
+cast template list
+cast template show --name acme-ordering
+cast template delete --name acme-ordering
+```
+
+A template stores the participants (required), optional default messages, and default `--title`,
+`--autonumber`, `--theme`, and box-color values. Everything is validated at save time with the same
+rules `generate` applies, so a bad template can never be saved. The stored file is plain,
+hand-editable JSON — `acme-ordering.json` from the `save` above looks like this:
+
+```json
+{
+  "name": "acme-ordering",
+  "participants": [
+    "actor:User",
+    "OS:Order Service",
+    "database:DB"
+  ],
+  "messages": [
+    "User -> OS : place order"
+  ],
+  "title": null,
+  "autoNumber": false,
+  "theme": null,
+  "outerBoxColor": null,
+  "innerBoxColor": null
+}
+```
+
+Edits are picked up on the next render; anything malformed is reported with a clear error. Only
+`name` and at least one participant are required — the other properties may be omitted entirely.
+
+| Subcommand | Description |
+| --- | --- |
+| *(none)* | Render the template named by `-n, --name`. Takes the same options as `generate` except `--participant`. |
+| `save` | Create or update (upsert) a template. `--name` and repeatable `-p, --participant` are required; `-m`, `--title`, `--autonumber`, `--theme`, and the box colors are optional. |
+| `list` | Print the saved template names. |
+| `show --name <name>` | Print a template's stored definition as JSON. |
+| `delete --name <name>` | Delete a template. |
+
+Render-time options override the stored values: `-m` messages **replace** the stored messages
+entirely; `--title`, `--theme`, and the box colors fall back to the stored values when not
+supplied; `--autonumber` can only switch numbering on. When neither the template nor the command
+line supplies messages, the placeholder flow kicks in exactly like `generate` (suppress it with
+`--no-sample`). The rendered diagram lands in `cast.puml` by default — `-o`, `--stdout`, `--force`,
+and `--no-open` behave exactly as they do for `generate`.
 
 ## Exit Codes
 

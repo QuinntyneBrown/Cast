@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Cast.Cli.Diagnostics;
@@ -11,33 +9,34 @@ using Microsoft.Extensions.Logging;
 namespace Cast.Cli.Services;
 
 /// <summary>
-/// Default <see cref="IScaffoldService"/>. Coordinates the focused services — it parses
-/// participants and messages, optionally fills in a sample flow, validates cross-references and
-/// metadata, renders, and writes — but contains no parsing, formatting, or I/O logic of its own.
-/// Failures are reported as a <see cref="ScaffoldStatus"/>; cancellation propagates.
+/// Default <see cref="IScaffoldService"/>. Coordinates the focused services — it validates and
+/// parses the raw specs through <see cref="IDiagramSpecValidator"/>, optionally fills in a sample
+/// flow, renders, writes, and opens the result in an editor when asked — but contains no parsing,
+/// formatting, or I/O logic of its own. Failures are reported as a <see cref="ScaffoldStatus"/>;
+/// cancellation propagates.
 /// </summary>
 public sealed class ScaffoldService : IScaffoldService
 {
-    private readonly IParticipantParser _participantParser;
-    private readonly IMessageParser _messageParser;
+    private readonly IDiagramSpecValidator _validator;
     private readonly ISampleFlowGenerator _sampleFlowGenerator;
     private readonly ISequenceDiagramRenderer _renderer;
     private readonly IDiagramWriter _writer;
+    private readonly IFileOpener _opener;
     private readonly ILogger<ScaffoldService> _logger;
 
     public ScaffoldService(
-        IParticipantParser participantParser,
-        IMessageParser messageParser,
+        IDiagramSpecValidator validator,
         ISampleFlowGenerator sampleFlowGenerator,
         ISequenceDiagramRenderer renderer,
         IDiagramWriter writer,
+        IFileOpener opener,
         ILogger<ScaffoldService> logger)
     {
-        _participantParser = participantParser;
-        _messageParser = messageParser;
+        _validator = validator;
         _sampleFlowGenerator = sampleFlowGenerator;
         _renderer = renderer;
         _writer = writer;
+        _opener = opener;
         _logger = logger;
     }
 
@@ -48,9 +47,9 @@ public sealed class ScaffoldService : IScaffoldService
 
         try
         {
-            IReadOnlyList<Participant> participants = ParseParticipants(request.Participants);
+            IReadOnlyList<Participant> participants = _validator.ParseParticipants(request.Participants);
             IReadOnlyList<Message> messages = ResolveMessages(request, participants);
-            ValidateMetadata(request);
+            _validator.ValidateMetadata(request.Title, request.Theme);
 
             var diagram = new SequenceDiagram(
                 participants,
@@ -70,6 +69,11 @@ public sealed class ScaffoldService : IScaffoldService
                 _logger.LogInformation(
                     "Scaffolded sequence diagram with {ParticipantCount} participant(s) and {MessageCount} message(s) to {OutputPath}.",
                     participants.Count, messages.Count, request.OutputPath);
+
+                if (request.OpenInEditor)
+                {
+                    _opener.Open(Path.GetFullPath(request.OutputPath));
+                }
             }
 
             return ScaffoldStatus.Success;
@@ -84,26 +88,6 @@ public sealed class ScaffoldService : IScaffoldService
             _logger.LogError("{Message}", ex.Message);
             return ScaffoldStatus.OutputError;
         }
-    }
-
-    private IReadOnlyList<Participant> ParseParticipants(IReadOnlyList<string> specs)
-    {
-        var participants = new List<Participant>(specs.Count);
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (string spec in specs)
-        {
-            Participant participant = _participantParser.Parse(spec);
-            if (!seen.Add(participant.Alias))
-            {
-                throw new DiagramFormatException(
-                    $"Duplicate participant alias '{participant.Alias}'. Each participant must have a unique alias.");
-            }
-
-            participants.Add(participant);
-        }
-
-        return participants;
     }
 
     /// <summary>
@@ -124,64 +108,6 @@ public sealed class ScaffoldService : IScaffoldService
             _logger.LogInformation("--no-sample has no effect because one or more --message values were supplied.");
         }
 
-        var aliases = participants.Select(p => p.Alias).ToHashSet(StringComparer.Ordinal);
-        var messages = new List<Message>(request.Messages.Count);
-
-        foreach (string spec in request.Messages)
-        {
-            Message message = _messageParser.Parse(spec);
-            EnsureKnownEndpoint(message.Source, spec, aliases);
-            EnsureKnownEndpoint(message.Target, spec, aliases);
-            messages.Add(message);
-        }
-
-        return messages;
-    }
-
-    private static void EnsureKnownEndpoint(string alias, string spec, IReadOnlySet<string> aliases)
-    {
-        if (!aliases.Contains(alias))
-        {
-            string known = aliases.Count == 0 ? "(none)" : string.Join(", ", aliases.Order());
-            throw new DiagramFormatException(
-                $"Message '{spec}' refers to unknown participant '{alias}'. " +
-                $"Declare it with --participant first. Known aliases: {known}.");
-        }
-    }
-
-    /// <summary>Validates the free-text title and theme so they cannot break the line-oriented output.</summary>
-    private static void ValidateMetadata(ScaffoldRequest request)
-    {
-        if (!string.IsNullOrWhiteSpace(request.Title) && ContainsControlChar(request.Title))
-        {
-            throw new DiagramFormatException(
-                "The title contains a control character (such as a line break). Use a single-line title.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Theme))
-        {
-            string theme = request.Theme.Trim();
-            foreach (char c in theme)
-            {
-                if (char.IsWhiteSpace(c) || char.IsControl(c))
-                {
-                    throw new DiagramFormatException(
-                        $"Theme '{theme}' must be a single token without whitespace; PlantUML '!theme' expects one name.");
-                }
-            }
-        }
-    }
-
-    private static bool ContainsControlChar(string value)
-    {
-        foreach (char c in value)
-        {
-            if (char.IsControl(c))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return _validator.ParseMessages(request.Messages, participants);
     }
 }

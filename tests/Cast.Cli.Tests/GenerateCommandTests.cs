@@ -65,6 +65,27 @@ public sealed class GenerateCommandTests
         Assert.True(request.IncludeSampleFlow); // no --no-sample
         Assert.Equal("#LightGray", request.OuterBoxColor);
         Assert.Equal("#White", request.InnerBoxColor);
+        Assert.True(request.OpenInEditor); // no --no-open
+    }
+
+    [Fact]
+    public async Task Invoke_WithoutNoOpen_RequestsEditorOpen()
+    {
+        var fake = new CapturingScaffoldService();
+
+        await Invoke(fake, "-p", "A");
+
+        Assert.True(Assert.IsType<ScaffoldRequest>(fake.Captured).OpenInEditor);
+    }
+
+    [Fact]
+    public async Task Invoke_WithNoOpen_SuppressesEditorOpen()
+    {
+        var fake = new CapturingScaffoldService();
+
+        await Invoke(fake, "-p", "A", "--no-open");
+
+        Assert.False(Assert.IsType<ScaffoldRequest>(fake.Captured).OpenInEditor);
     }
 
     [Fact]

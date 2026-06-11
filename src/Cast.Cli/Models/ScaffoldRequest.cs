@@ -21,6 +21,10 @@ namespace Cast.Cli.Models;
 /// </param>
 /// <param name="OuterBoxColor">Optional outer participant-box color overriding <see cref="DiagramStyle.DefaultOuterBoxColor"/>.</param>
 /// <param name="InnerBoxColor">Optional inner participant-box color overriding <see cref="DiagramStyle.DefaultInnerBoxColor"/>.</param>
+/// <param name="OpenInEditor">
+/// Open the written file in an editor after a successful write. Has no effect when
+/// <paramref name="OutputPath"/> is <see langword="null"/> (standard output).
+/// </param>
 public sealed record ScaffoldRequest(
     IReadOnlyList<string> Participants,
     IReadOnlyList<string> Messages,
@@ -31,4 +35,5 @@ public sealed record ScaffoldRequest(
     bool Force,
     bool IncludeSampleFlow,
     string? OuterBoxColor = null,
-    string? InnerBoxColor = null);
+    string? InnerBoxColor = null,
+    bool OpenInEditor = false);

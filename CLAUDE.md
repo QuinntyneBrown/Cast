@@ -12,7 +12,12 @@ renders a narrated diagram of how Angular injects dependencies into any `inject(
 (service, component, directive, pipe, interceptor, guard, resolver, or exported function), writing a
 `.puml` beside the source by default (`--stdout` prints instead); the `style` command retrofits the
 house styling onto existing `.puml` sequence diagrams in place (one file, or a folder scanned
-recursively), leaving non-sequence diagrams untouched. The design follows SOLID with
+recursively), leaving non-sequence diagrams untouched; the `template` command persists named
+diagram templates as JSON under `%APPDATA%\cast\templates` (full CRUD via `save`/`list`/`show`/
+`delete` subcommands) and renders one through the scaffolding pipeline when invoked with `--name`,
+render-time options overriding the stored values (`-m` replaces stored messages entirely). Every
+command that writes a `.puml` file opens it in Notepad by default on Windows (`--no-open`
+suppresses; `--stdout` never opens). The design follows SOLID with
 `Microsoft.Extensions.DependencyInjection` and a one-command-per-file layout. Solution: `Cast.sln`.
 
 ## Commands
@@ -26,6 +31,8 @@ dotnet build Cast.sln                                         # build all projec
 dotnet run --project src/Cast.Cli -- generate -p actor:User -p OS   # writes cast.puml in the cwd
 dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # writes foo.service.puml beside it
 dotnet run --project src/Cast.Cli -- style docs/diagrams            # restyles sequence .puml files in place
+dotnet run --project src/Cast.Cli -- template save --name acme -p actor:User -p OS   # upsert a template
+dotnet run --project src/Cast.Cli -- template --name acme -m "User -> OS : order"    # render it to cast.puml
 dotnet test Cast.sln                                          # run all tests
 ```
 
@@ -46,11 +53,18 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   point), `RootCommandFactory` (assembles the root command from every registered `ICliCommand`),
   and `ExitCode`.
 - `src/Cast.Cli/Commands/` — one `ICliCommand` per file (`GenerateCommand`, `ListKindsCommand`,
-  `NgCommand`, `StyleCommand`). A command maps parsed options to a request record and delegates to
-  an orchestrator service; no `System.CommandLine` type leaks into the core.
+  `NgCommand`, `StyleCommand`, `TemplateCommand`). A command maps parsed options to a request
+  record and delegates to an orchestrator service; no `System.CommandLine` type leaks into the
+  core. `TemplateCommand` is a command family: the parent command's own action renders
+  (`cast template --name X`), and `save`/`list`/`show`/`delete` are subcommands built inside the
+  same class — the parent's `--name` is deliberately not `Required` so subcommand invocations
+  aren't blocked, and each subcommand constructs its own `Option` instances.
 - `src/Cast.Cli/Services/` — focused, interface-backed services: kind catalog, participant and
-  message parsers, sample-flow generator, renderer (`ISequenceDiagramRenderer`), writer
-  (`IDiagramWriter`), and the `IScaffoldService` orchestrator. The `ng` command adds its own set:
+  message parsers, the shared `IDiagramSpecValidator` (duplicate-alias, message-endpoint, and
+  title/theme rules used by both `generate` and template saving), sample-flow generator, renderer
+  (`ISequenceDiagramRenderer`), writer (`IDiagramWriter`), the best-effort `IFileOpener`
+  (`NotepadFileOpener`: fire-and-forget `notepad.exe`, never throws, skips on non-Windows), and
+  the `IScaffoldService` orchestrator. The `ng` command adds its own set:
   `IAngularServiceParser` (a comment/string-aware scanner that extracts a consumer and its injected
   dependencies — no Node sidecar), `IAngularDiagramRenderer` (the narrated DI diagram),
   `ISourceFileReader` (the read-side I/O boundary, mirroring `IDiagramWriter`), and the
@@ -59,22 +73,33 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   classification), `ISequenceDiagramStyler` (the idempotent in-place restyle transform; shared
   comment/note-aware line scanning lives in the internal `PlantUmlScanner`), `ITextFileEditor`
   (the in-place read/write boundary that preserves the file's encoding and BOM), and the
-  `IStyleService` orchestrator.
+  `IStyleService` orchestrator. The `template` command adds `ITemplateStore`
+  (`FileSystemTemplateStore`: JSON persistence under `%APPDATA%\cast\templates` with
+  whitelist-validated names — no traversal, no reserved device names) and the `ITemplateService`
+  orchestrator (validates before persisting so a bad template can't be saved; rendering merges the
+  stored template with render-time overrides into a `ScaffoldRequest` and delegates to
+  `IScaffoldService`).
 - `src/Cast.Cli/Models/` — immutable records (`Participant`, `Message`, `SequenceDiagram`,
   `ScaffoldRequest`, `ParticipantKind`, `DiagramStyle`; `AngularService`, `AngularDependency`,
   `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command; `StyleRequest`,
-  `StylerResult` for the `style` command).
+  `StylerResult` for the `style` command; `DiagramTemplate` — an init-property record, the JSON
+  contract — and `RenderTemplateRequest` for the `template` command).
 - `src/Cast.Cli/Diagnostics/` — `DiagramFormatException` for user-facing input errors.
 
-Conventions: both commands write a `.puml` file by default (`--stdout` prints the diagram to
-**stdout** instead), and logs go to **stderr**. Adding a command means adding
-an `ICliCommand` and registering it in `AddCast` — no central switchboard to edit.
+Conventions: the generating commands (`generate`, `ng`, `template`) write a `.puml` file by
+default (`--stdout` prints the diagram to **stdout** instead) and then open it in Notepad on
+Windows (`--no-open` suppresses; a failed launch logs a warning but never fails the command), and
+logs go to **stderr**. Adding a command means adding an `ICliCommand` and registering it in
+`AddCast` — no central switchboard to edit.
 
 PlantUML output conventions (both renderers): always emit `!pragma teoz true` and
-`skinparam defaultFontSize 10`, and wrap the non-actor participants in a double nested box —
-outer `#PHYSICAL`, inner `#AZURE` by default. Actors always stay outside the boxes. Both colors
-are overridable per command via `--outer-box-color` / `--inner-box-color`, normalized and
-validated by `DiagramStyle.FromOptions` (a missing `#` prefix is added).
+`skinparam defaultFontSize 10`, color every lifeline declaration (participants and actors alike)
+with the fixed house color `#63BEF2` (`DiagramStyle.ParticipantColor`, not overridable), and wrap
+the non-actor participants in a double nested box — outer `#PHYSICAL`, inner `#AZURE` by default.
+Actors always stay outside the boxes. The box colors are overridable per command via
+`--outer-box-color` / `--inner-box-color`, normalized and validated by `DiagramStyle.FromOptions`
+(a missing `#` prefix is added). The `style` command retrofits the participant color too, leaving
+declarations that already carry a color untouched.
 
 ## Tests
 

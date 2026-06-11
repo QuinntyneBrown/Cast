@@ -19,6 +19,7 @@ public sealed class AngularDiagramService : IAngularDiagramService
     private readonly IAngularServiceParser _parser;
     private readonly IAngularDiagramRenderer _renderer;
     private readonly IDiagramWriter _writer;
+    private readonly IFileOpener _opener;
     private readonly ILogger<AngularDiagramService> _logger;
 
     public AngularDiagramService(
@@ -26,12 +27,14 @@ public sealed class AngularDiagramService : IAngularDiagramService
         IAngularServiceParser parser,
         IAngularDiagramRenderer renderer,
         IDiagramWriter writer,
+        IFileOpener opener,
         ILogger<AngularDiagramService> logger)
     {
         _reader = reader;
         _parser = parser;
         _renderer = renderer;
         _writer = writer;
+        _opener = opener;
         _logger = logger;
     }
 
@@ -85,6 +88,11 @@ public sealed class AngularDiagramService : IAngularDiagramService
         if (!string.IsNullOrWhiteSpace(request.OutputPath))
         {
             _logger.LogInformation("Wrote Angular DI diagram to {OutputPath}.", request.OutputPath);
+
+            if (request.OpenInEditor)
+            {
+                _opener.Open(Path.GetFullPath(request.OutputPath));
+            }
         }
 
         return ScaffoldStatus.Success;

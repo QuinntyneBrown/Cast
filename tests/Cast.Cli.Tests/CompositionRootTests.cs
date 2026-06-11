@@ -17,6 +17,8 @@ public sealed class CompositionRootTests
         Assert.NotNull(provider.GetRequiredService<IScaffoldService>());
         Assert.NotNull(provider.GetRequiredService<IAngularDiagramService>());
         Assert.NotNull(provider.GetRequiredService<IStyleService>());
+        Assert.NotNull(provider.GetRequiredService<ITemplateService>());
+        Assert.NotNull(provider.GetRequiredService<IFileOpener>());
         Assert.NotNull(provider.GetRequiredService<RootCommandFactory>());
     }
 
@@ -32,5 +34,21 @@ public sealed class CompositionRootTests
         Assert.Contains("kinds", names);
         Assert.Contains("ng", names);
         Assert.Contains("style", names);
+        Assert.Contains("template", names);
+    }
+
+    [Fact]
+    public void TemplateCommand_HasCrudSubcommands()
+    {
+        using ServiceProvider provider = new ServiceCollection().AddCast().BuildServiceProvider();
+
+        RootCommand root = provider.GetRequiredService<RootCommandFactory>().Create();
+        Command template = Assert.Single(root.Subcommands, c => c.Name == "template");
+        var names = template.Subcommands.Select(c => c.Name).ToHashSet();
+
+        Assert.Contains("save", names);
+        Assert.Contains("list", names);
+        Assert.Contains("show", names);
+        Assert.Contains("delete", names);
     }
 }

@@ -25,6 +25,7 @@ public sealed class NgCommand : ICliCommand
     private readonly Option<bool> _force;
     private readonly Option<string?> _outerBoxColor;
     private readonly Option<string?> _innerBoxColor;
+    private readonly Option<bool> _noOpen;
 
     public NgCommand(IAngularDiagramService service)
     {
@@ -70,6 +71,11 @@ public sealed class NgCommand : ICliCommand
             Description = $"Color of the inner box wrapping the non-actor participants (defaults to {DiagramStyle.DefaultInnerBoxColor}).",
             HelpName = "color",
         };
+
+        _noOpen = new Option<bool>("--no-open")
+        {
+            Description = "Do not open the written file in Notepad.",
+        };
     }
 
     /// <inheritdoc />
@@ -85,6 +91,7 @@ public sealed class NgCommand : ICliCommand
         command.Options.Add(_force);
         command.Options.Add(_outerBoxColor);
         command.Options.Add(_innerBoxColor);
+        command.Options.Add(_noOpen);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -102,7 +109,8 @@ public sealed class NgCommand : ICliCommand
                 OutputPath: outputPath,
                 Force: parseResult.GetValue(_force),
                 OuterBoxColor: parseResult.GetValue(_outerBoxColor),
-                InnerBoxColor: parseResult.GetValue(_innerBoxColor));
+                InnerBoxColor: parseResult.GetValue(_innerBoxColor),
+                OpenInEditor: !parseResult.GetValue(_noOpen));
 
             ScaffoldStatus status = await _service.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

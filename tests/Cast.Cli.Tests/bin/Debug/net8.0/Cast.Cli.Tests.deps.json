@@ -8,7 +8,7 @@
     ".NETCoreApp,Version=v8.0": {
       "Cast.Cli.Tests/1.0.0": {
         "dependencies": {
-          "Cast.Cli": "1.0.0",
+          "Cast.Cli": "1.1.0",
           "Microsoft.NET.Test.Sdk": "17.14.1",
           "xunit": "2.9.3"
         },
@@ -525,7 +525,7 @@
           }
         }
       },
-      "Cast.Cli/1.0.0": {
+      "Cast.Cli/1.1.0": {
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection": "8.0.1",
           "Microsoft.Extensions.Logging": "8.0.1",
@@ -714,7 +714,7 @@
       "path": "xunit.extensibility.execution/2.9.3",
       "hashPath": "xunit.extensibility.execution.2.9.3.nupkg.sha512"
     },
-    "Cast.Cli/1.0.0": {
+    "Cast.Cli/1.1.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

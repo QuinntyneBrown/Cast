@@ -23,8 +23,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IParticipantParser, ParticipantParser>();
         services.AddSingleton<IMessageParser, MessageParser>();
         services.AddSingleton<ISampleFlowGenerator, SequentialSampleFlowGenerator>();
+        services.AddSingleton<IDiagramSpecValidator, DiagramSpecValidator>();
         services.AddSingleton<ISequenceDiagramRenderer, PlantUmlSequenceRenderer>();
         services.AddSingleton<IDiagramWriter>(_ => new FileSystemDiagramWriter());
+        services.AddSingleton<IFileOpener, NotepadFileOpener>();
         services.AddSingleton<IScaffoldService, ScaffoldService>();
 
         // Angular DI inspection (the `ng` command): read a .ts file, extract its DI graph, render.
@@ -32,6 +34,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAngularServiceParser, AngularServiceParser>();
         services.AddSingleton<IAngularDiagramRenderer, PlantUmlAngularDiagramRenderer>();
         services.AddSingleton<IAngularDiagramService, AngularDiagramService>();
+
+        // Named templates (the `template` command): persist diagram definitions as JSON under the
+        // per-user application-data folder and render them through the scaffolding pipeline.
+        services.AddSingleton<ITemplateStore>(_ => new FileSystemTemplateStore());
+        services.AddSingleton<ITemplateService, TemplateService>();
 
         // Restyling existing diagrams (the `style` command): locate .puml files, classify, rewrite
         // in place through the encoding-preserving editor.
@@ -46,6 +53,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICliCommand, ListKindsCommand>();
         services.AddSingleton<ICliCommand, NgCommand>();
         services.AddSingleton<ICliCommand, StyleCommand>();
+        services.AddSingleton<ICliCommand, TemplateCommand>();
 
         services.AddSingleton<RootCommandFactory>();
 

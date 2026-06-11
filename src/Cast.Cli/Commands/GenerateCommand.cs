@@ -28,6 +28,7 @@ public sealed class GenerateCommand : ICliCommand
     private readonly Option<bool> _noSample;
     private readonly Option<string?> _outerBoxColor;
     private readonly Option<string?> _innerBoxColor;
+    private readonly Option<bool> _noOpen;
 
     public GenerateCommand(IScaffoldService scaffold)
     {
@@ -103,6 +104,11 @@ public sealed class GenerateCommand : ICliCommand
             Description = $"Color of the inner box wrapping the non-actor participants (defaults to {DiagramStyle.DefaultInnerBoxColor}).",
             HelpName = "color",
         };
+
+        _noOpen = new Option<bool>("--no-open")
+        {
+            Description = "Do not open the written file in Notepad.",
+        };
     }
 
     /// <inheritdoc />
@@ -122,6 +128,7 @@ public sealed class GenerateCommand : ICliCommand
         command.Options.Add(_noSample);
         command.Options.Add(_outerBoxColor);
         command.Options.Add(_innerBoxColor);
+        command.Options.Add(_noOpen);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -141,7 +148,8 @@ public sealed class GenerateCommand : ICliCommand
                 Force: parseResult.GetValue(_force),
                 IncludeSampleFlow: !parseResult.GetValue(_noSample),
                 OuterBoxColor: parseResult.GetValue(_outerBoxColor),
-                InnerBoxColor: parseResult.GetValue(_innerBoxColor));
+                InnerBoxColor: parseResult.GetValue(_innerBoxColor),
+                OpenInEditor: !parseResult.GetValue(_noOpen));
 
             ScaffoldStatus status = await _scaffold.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
