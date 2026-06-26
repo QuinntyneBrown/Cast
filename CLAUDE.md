@@ -10,7 +10,13 @@ writing `cast.puml` in the current directory by default (`--stdout` prints inste
 `kinds` command lists the participant kinds; the `ng` command inspects an Angular `.ts` file and
 renders a narrated diagram of how Angular injects dependencies into any `inject()`-using construct
 (service, component, directive, pipe, interceptor, guard, resolver, or exported function), writing a
-`.puml` beside the source by default (`--stdout` prints instead); the `style` command retrofits the
+`.puml` beside the source by default (`--stdout` prints instead); the `calls` command (alias
+`callgraph`) reads a TypeScript `.ts` file and renders a call-graph sequence diagram — for each
+public method (or, for a class-less file, each exported function) it shows the calls that member
+makes to itself and its collaborators, resolving each receiver from field/constructor/local types,
+writing a `.puml` beside the source by default (`--stdout` prints instead; `--method <name>` focuses
+on named members regardless of visibility, `--include-private` widens past public); the `style`
+command retrofits the
 house styling onto existing `.puml` sequence diagrams in place (one file, or a folder scanned
 recursively), leaving non-sequence diagrams untouched; the `template` command persists named
 diagram templates as JSON under `%APPDATA%\cast\templates` (full CRUD via `save`/`list`/`show`/
@@ -31,6 +37,7 @@ build must stay warning-clean.
 dotnet build Cast.sln                                         # build all projects
 dotnet run --project src/Cast.Cli -- generate -p actor:User -p OS   # writes cast.puml in the cwd
 dotnet run --project src/Cast.Cli -- ng -s path/to/foo.service.ts   # writes foo.service.puml beside it
+dotnet run --project src/Cast.Cli -- calls -s path/to/order.service.ts  # call-graph diagram beside it
 dotnet run --project src/Cast.Cli -- style docs/diagrams            # restyles sequence .puml files in place
 dotnet run --project src/Cast.Cli -- template save --name acme -p actor:User -p OS   # upsert a template
 dotnet run --project src/Cast.Cli -- template --name acme -m "User -> OS : order"    # render it to cast.puml
@@ -55,7 +62,7 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   point), `RootCommandFactory` (assembles the root command from every registered `ICliCommand`),
   and `ExitCode`.
 - `src/Cast.Cli/Commands/` — one `ICliCommand` per file (`GenerateCommand`, `ListKindsCommand`,
-  `NgCommand`, `StyleCommand`, `TemplateCommand`, `ExplorerCommand`). A command maps parsed
+  `NgCommand`, `CallGraphCommand`, `StyleCommand`, `TemplateCommand`, `ExplorerCommand`). A command maps parsed
   options to a request
   record and delegates to an orchestrator service; no `System.CommandLine` type leaks into the
   core. `TemplateCommand` is a command family: the parent command's own action renders
@@ -71,7 +78,15 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   `IAngularServiceParser` (a comment/string-aware scanner that extracts a consumer and its injected
   dependencies — no Node sidecar), `IAngularDiagramRenderer` (the narrated DI diagram),
   `ISourceFileReader` (the read-side I/O boundary, mirroring `IDiagramWriter`), and the
-  `IAngularDiagramService` orchestrator. The `style` command adds `IPumlFileLocator` (file vs.
+  `IAngularDiagramService` orchestrator. The comment/string/regex-aware scanning the TypeScript
+  parsers share lives in the internal `TypeScriptScanner` (sanitiser plus balanced-delimiter
+  helpers). The `calls` command adds `ITypeScriptCallGraphParser` (`TypeScriptCallGraphParser`: a
+  focused scanner that picks the primary class — or, for a class-less file, the exported functions —
+  builds a symbol table from fields/constructor-params/locals, and collects each member's outbound
+  calls, classifying them as self/collaborator/construction), `ICallGraphRenderer`
+  (`PlantUmlCallGraphRenderer`: one interaction per method), and the `ICallGraphService` orchestrator
+  (which owns the member-selection policy — `--method`/`--include-private`). The `style` command
+  adds `IPumlFileLocator` (file vs.
   recursive folder discovery), `ISequenceDiagramDetector` (conservative is-this-a-sequence-diagram
   classification), `ISequenceDiagramStyler` (the idempotent in-place restyle transform; shared
   comment/note-aware line scanning lives in the internal `PlantUmlScanner`), `ITextFileEditor`
@@ -86,7 +101,9 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   is the command's whole purpose) and the `IExplorerService` orchestrator.
 - `src/Cast.Cli/Models/` — immutable records (`Participant`, `Message`, `SequenceDiagram`,
   `ScaffoldRequest`, `ParticipantKind`, `DiagramStyle`; `AngularService`, `AngularDependency`,
-  `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command; `StyleRequest`,
+  `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command; `CallGraph`,
+  `CallGraphMethod`, `MethodCall`, `CallGraphSubjectKind`, `CallKind`, `MethodVisibility`, and
+  `CallGraphRequest` for the `calls` command; `StyleRequest`,
   `StylerResult` for the `style` command; `DiagramTemplate` — an init-property record, the JSON
   contract — and `RenderTemplateRequest` for the `template` command).
 - `src/Cast.Cli/Diagnostics/` — `DiagramFormatException` for user-facing input errors.
@@ -97,7 +114,7 @@ Windows (`--no-open` suppresses; a failed launch logs a warning but never fails 
 logs go to **stderr**. Adding a command means adding an `ICliCommand` and registering it in
 `AddCast` — no central switchboard to edit.
 
-PlantUML output conventions (both renderers): always emit `!pragma teoz true` and
+PlantUML output conventions (all renderers): always emit `!pragma teoz true` and
 `skinparam defaultFontSize 10`, color every lifeline declaration (participants and actors alike)
 with the fixed house color `#63BEF2` (`DiagramStyle.ParticipantColor`, not overridable), and wrap
 the non-actor participants in a double nested box — outer `#PHYSICAL`, inner `#AZURE` by default.

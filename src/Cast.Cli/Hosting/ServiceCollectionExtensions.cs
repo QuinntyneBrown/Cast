@@ -35,6 +35,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAngularDiagramRenderer, PlantUmlAngularDiagramRenderer>();
         services.AddSingleton<IAngularDiagramService, AngularDiagramService>();
 
+        // Call-graph inspection (the `calls` command): read a .ts file, extract each member's
+        // outbound calls, render one interaction per method. Reuses the shared source reader/writer.
+        services.AddSingleton<ITypeScriptCallGraphParser, TypeScriptCallGraphParser>();
+        services.AddSingleton<ICallGraphRenderer, PlantUmlCallGraphRenderer>();
+        services.AddSingleton<ICallGraphService, CallGraphService>();
+
         // Named templates (the `template` command): persist diagram definitions as JSON under the
         // per-user application-data folder and render them through the scaffolding pipeline.
         // The `explorer` command opens that folder in VS Code for hand editing.
@@ -55,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICliCommand, GenerateCommand>();
         services.AddSingleton<ICliCommand, ListKindsCommand>();
         services.AddSingleton<ICliCommand, NgCommand>();
+        services.AddSingleton<ICliCommand, CallGraphCommand>();
         services.AddSingleton<ICliCommand, StyleCommand>();
         services.AddSingleton<ICliCommand, TemplateCommand>();
         services.AddSingleton<ICliCommand, ExplorerCommand>();

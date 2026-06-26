@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("Scaffolds initial PlantUML sequence diagrams from command-line participants and m" +
     "essages."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.2.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.2.0+fa8aaec32865381163dbfadd6f56ebcba7a91abd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.2.0+12ec5163a28587ca221e57c67cea28f28895cfef")]
 [assembly: System.Reflection.AssemblyProductAttribute("cast")]
 [assembly: System.Reflection.AssemblyTitleAttribute("cast")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.2.0.0")]

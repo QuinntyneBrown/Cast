@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
 using Cast.Cli.Diagnostics;
 using Cast.Cli.Models;
@@ -53,7 +52,7 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
             throw Fail(fileName, $"the file is too large to inspect ({source.Length:N0} characters).");
         }
 
-        string code = Sanitize(source);
+        string code = TypeScriptScanner.Sanitize(source);
         HashSet<string> localTokens = CollectLocalTokens(code);
 
         try
@@ -158,7 +157,7 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
 
     private static AngularService ParseClass(string source, string code, ClassConsumer cls, HashSet<string> localTokens)
     {
-        (int bodyStart, int bodyEnd) = ExtractBraceRange(code, cls.BodyScanFrom);
+        (int bodyStart, int bodyEnd) = TypeScriptScanner.ExtractBraceRange(code, cls.BodyScanFrom);
         string body = code[bodyStart..bodyEnd];
 
         var dependencies = new List<AngularDependency>();
@@ -168,7 +167,7 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
         // inside method/constructor bodies and run later, not at construction, so they are skipped.
         foreach (Match call in InjectCall().Matches(body))
         {
-            if (BraceDepth(body, call.Index) != 0)
+            if (TypeScriptScanner.BraceDepth(body, call.Index) != 0)
             {
                 continue;
             }
@@ -253,8 +252,8 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
             return null;
         }
 
-        (_, int paramEnd) = ExtractBalancedRange(code, paramOpen, '(', ')');
-        (int bodyStart, int bodyEnd) = ExtractFunctionBody(code, paramEnd + 1);
+        (_, int paramEnd) = TypeScriptScanner.ExtractBalancedRange(code, paramOpen, '(', ')');
+        (int bodyStart, int bodyEnd) = TypeScriptScanner.ExtractFunctionBody(code, paramEnd + 1);
         if (bodyEnd <= bodyStart)
         {
             return null;
@@ -309,11 +308,11 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
             return;
         }
 
-        (int paramStart, int paramEnd) = ExtractBalancedRange(code, open, '(', ')');
+        (int paramStart, int paramEnd) = TypeScriptScanner.ExtractBalancedRange(code, open, '(', ')');
         string paramsCode = code[paramStart..paramEnd];
         string paramsSource = source[paramStart..paramEnd];
 
-        foreach ((int start, int len) in SplitTopLevelRanges(paramsCode))
+        foreach ((int start, int len) in TypeScriptScanner.SplitTopLevelRanges(paramsCode))
         {
             string param = paramsCode.Substring(start, len);
             string paramSource = paramsSource.Substring(start, len);
@@ -342,7 +341,7 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
                 continue;
             }
 
-            string type = LastSegment(typed.Groups["type"].Value);
+            string type = TypeScriptScanner.LastSegment(typed.Groups["type"].Value);
             if (IsInjectableType(type))
             {
                 Add(dependencies, seen, new AngularDependency(type, ClassifyDependency(type, forceToken: false, localTokens), optional));
@@ -359,7 +358,7 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
             return string.Empty;
         }
 
-        (int argStart, int argEnd) = ExtractBalancedRange(paramCode, open, '(', ')');
+        (int argStart, int argEnd) = TypeScriptScanner.ExtractBalancedRange(paramCode, open, '(', ')');
         string arg = paramSource[argStart..argEnd].Trim();
         if (arg.Length == 0)
         {
@@ -393,7 +392,7 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
 
         // Read the decorator argument from the original source, brace-balanced, so a nested object
         // before providedIn does not truncate it and the 'root' string literal is preserved.
-        (int argStart, int argEnd) = ExtractBalancedRange(code, open, '(', ')');
+        (int argStart, int argEnd) = TypeScriptScanner.ExtractBalancedRange(code, open, '(', ')');
         Match scope = ProvidedInValue().Match(source[argStart..argEnd]);
         if (!scope.Success)
         {
@@ -477,273 +476,7 @@ public sealed partial class AngularServiceParser : IAngularServiceParser
         return tokens;
     }
 
-    // ----- text helpers --------------------------------------------------------------------
-
-    /// <summary>
-    /// Returns a copy of <paramref name="source"/> of the SAME length, with line and block comments
-    /// and the contents of <c>'…'</c>, <c>"…"</c>, <c>`…`</c>, and <c>/…/</c> regex literals replaced
-    /// by spaces (newlines preserved). Equal length keeps every index aligned with the original, so
-    /// the real text of a token or option can be read back at the matched position, and the
-    /// structural braces and parentheses of real code stay intact for balance matching.
-    /// </summary>
-    private static string Sanitize(string source)
-    {
-        var sb = new StringBuilder(source.Length);
-        int i = 0;
-        int n = source.Length;
-        char prevSignificant = '\0';
-
-        void Blank(int count)
-        {
-            for (int k = 0; k < count; k++) sb.Append(' ');
-        }
-
-        while (i < n)
-        {
-            char c = source[i];
-
-            if (c == '/' && i + 1 < n && source[i + 1] == '/')
-            {
-                while (i < n && source[i] != '\n') { sb.Append(' '); i++; }
-                continue;
-            }
-
-            if (c == '/' && i + 1 < n && source[i + 1] == '*')
-            {
-                while (i < n && !(i + 1 < n && source[i] == '*' && source[i + 1] == '/'))
-                {
-                    sb.Append(source[i] == '\n' ? '\n' : ' ');
-                    i++;
-                }
-
-                if (i < n) { Blank(Math.Min(2, n - i)); i = Math.Min(i + 2, n); }
-                continue;
-            }
-
-            if (c is '\'' or '"')
-            {
-                sb.Append(c);
-                i++;
-                while (i < n && source[i] != c && source[i] != '\n')
-                {
-                    if (source[i] == '\\' && i + 1 < n) { Blank(2); i += 2; continue; }
-                    sb.Append(' ');
-                    i++;
-                }
-
-                if (i < n && source[i] == c) { sb.Append(c); i++; }
-                prevSignificant = c;
-                continue;
-            }
-
-            if (c == '`')
-            {
-                sb.Append('`');
-                i++;
-                while (i < n)
-                {
-                    char d = source[i];
-                    if (d == '\\' && i + 1 < n) { Blank(2); i += 2; continue; }
-                    if (d == '`') { sb.Append('`'); i++; break; }
-                    if (d == '$' && i + 1 < n && source[i + 1] == '{')
-                    {
-                        Blank(2);
-                        i += 2;
-                        int braces = 1;
-                        while (i < n && braces > 0)
-                        {
-                            char e = source[i];
-                            if (e == '{') braces++;
-                            else if (e == '}') braces--;
-                            sb.Append(e == '\n' ? '\n' : ' ');
-                            i++;
-                        }
-
-                        continue;
-                    }
-
-                    sb.Append(d == '\n' ? '\n' : ' ');
-                    i++;
-                }
-
-                prevSignificant = '`';
-                continue;
-            }
-
-            // Regex literal: a '/' in expression position (not division). Heuristic: the previous
-            // significant character is not one that can end an operand.
-            if (c == '/' && IsRegexStart(prevSignificant))
-            {
-                sb.Append('/');
-                i++;
-                bool inClass = false;
-                while (i < n && source[i] != '\n')
-                {
-                    char d = source[i];
-                    if (d == '\\' && i + 1 < n) { Blank(2); i += 2; continue; }
-                    if (d == '[') inClass = true;
-                    else if (d == ']') inClass = false;
-                    else if (d == '/' && !inClass) { sb.Append('/'); i++; break; }
-                    sb.Append(' ');
-                    i++;
-                }
-
-                prevSignificant = '/';
-                continue;
-            }
-
-            sb.Append(c);
-            if (!char.IsWhiteSpace(c))
-            {
-                prevSignificant = c;
-            }
-
-            i++;
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Whether a <c>/</c> following <paramref name="prev"/> begins a regex literal rather than a
-    /// division. A regex can only appear where an operand is expected, i.e. after an operator or an
-    /// opening punctuation — never after a value (identifier, number, string, <c>)</c>, <c>]</c>).
-    /// This is conservative: it never misclassifies division as a regex, at the cost of not
-    /// recognising the rare keyword-prefixed form (<c>return /re/</c>), whose contents are harmless
-    /// anyway because class dependency scanning only reads field initialisers (brace-depth 0).
-    /// </summary>
-    private static bool IsRegexStart(char prev) =>
-        prev is '\0' or '(' or ',' or '=' or ':' or '[' or '!' or '&' or '|' or '?' or '{' or '}'
-            or ';' or '<' or '>' or '+' or '-' or '*' or '%' or '^' or '~';
-
-    private static (int Start, int End) ExtractBraceRange(string code, int fromIndex)
-    {
-        int open = code.IndexOf('{', fromIndex);
-        return open < 0 ? (fromIndex, fromIndex) : ExtractBalancedRange(code, open, '{', '}');
-    }
-
-    /// <summary>
-    /// Finds a function's body brace range starting just after its parameter list, skipping an
-    /// optional return-type annotation first. A named/generic/array return type contains no
-    /// top-level <c>{</c>, so the body is found directly; an object-literal return type
-    /// (<c>): { … } { body }</c>) is balance-skipped so it is not mistaken for the body.
-    /// </summary>
-    private static (int Start, int End) ExtractFunctionBody(string code, int afterParams)
-    {
-        int i = SkipWhitespace(code, afterParams);
-        if (i < code.Length && code[i] == ':')
-        {
-            i = SkipReturnType(code, i + 1);
-        }
-
-        return ExtractBraceRange(code, i);
-    }
-
-    /// <summary>
-    /// Advances past a return-type annotation that begins with one or more object-literal segments
-    /// (e.g. <c>{ a: number }</c>, or <c>{ a } &amp; { b }</c>), so the following brace is the body.
-    /// Named/generic/array types (no leading <c>{</c>) are left for <see cref="ExtractBraceRange"/>.
-    /// </summary>
-    private static int SkipReturnType(string code, int from)
-    {
-        int i = SkipWhitespace(code, from);
-        while (i < code.Length && code[i] == '{')
-        {
-            (_, int close) = ExtractBalancedRange(code, i, '{', '}');
-            i = SkipWhitespace(code, close + 1);
-            if (i < code.Length && (code[i] is '|' or '&'))
-            {
-                i = SkipWhitespace(code, i + 1);
-                continue;
-            }
-
-            break;
-        }
-
-        return i;
-    }
-
-    private static int SkipWhitespace(string code, int from)
-    {
-        int i = from;
-        while (i < code.Length && char.IsWhiteSpace(code[i]))
-        {
-            i++;
-        }
-
-        return i;
-    }
-
-    /// <summary>Returns the [start, end) content range between the delimiter at <paramref name="openIndex"/> and its match.</summary>
-    private static (int Start, int End) ExtractBalancedRange(string code, int openIndex, char open, char close)
-    {
-        int depth = 0;
-        for (int i = openIndex; i < code.Length; i++)
-        {
-            char c = code[i];
-            if (c == open)
-            {
-                depth++;
-            }
-            else if (c == close)
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return (openIndex + 1, i);
-                }
-            }
-        }
-
-        return (openIndex + 1, code.Length);
-    }
-
-    /// <summary>Net brace depth of <paramref name="text"/> up to (not including) <paramref name="index"/>.</summary>
-    private static int BraceDepth(string text, int index)
-    {
-        int depth = 0;
-        for (int i = 0; i < index && i < text.Length; i++)
-        {
-            if (text[i] == '{') depth++;
-            else if (text[i] == '}') depth--;
-        }
-
-        return depth;
-    }
-
-    /// <summary>Splits a parameter list on top-level commas, returning (start, length) ranges.</summary>
-    private static IEnumerable<(int Start, int Len)> SplitTopLevelRanges(string list)
-    {
-        var ranges = new List<(int, int)>();
-        int depth = 0;
-        int start = 0;
-        for (int i = 0; i < list.Length; i++)
-        {
-            char c = list[i];
-            switch (c)
-            {
-                case '(' or '[' or '{' or '<':
-                    depth++;
-                    break;
-                case ')' or ']' or '}' or '>':
-                    if (depth > 0) depth--;
-                    break;
-                case ',' when depth == 0:
-                    ranges.Add((start, i - start));
-                    start = i + 1;
-                    break;
-            }
-        }
-
-        ranges.Add((start, list.Length - start));
-        return ranges;
-    }
-
-    private static string LastSegment(string type)
-    {
-        int dot = type.LastIndexOf('.');
-        return dot < 0 ? type : type[(dot + 1)..];
-    }
+    // ----- helpers -------------------------------------------------------------------------
 
     private static void Add(List<AngularDependency> dependencies, HashSet<string> seen, AngularDependency dependency)
     {
