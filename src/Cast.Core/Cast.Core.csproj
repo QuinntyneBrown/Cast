@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Cast.Core</RootNamespace>
+    <AssemblyName>Cast.Core</AssemblyName>
+
+    <PackageId>Cast.Core</PackageId>
+    <!-- Local default only; CI overrides with -p:Version. Kept in lockstep with Cast.Cli. -->
+    <Version>1.3.1</Version>
+    <Description>Reusable .NET APIs for parsing, validating, rendering, detecting, and styling Cast PlantUML sequence diagrams.</Description>
+    <Authors>QuinntyneBrown</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/QuinntyneBrown/Cast</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/QuinntyneBrown/Cast</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>plantuml;sequence-diagram;dotnet;library;diagram</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

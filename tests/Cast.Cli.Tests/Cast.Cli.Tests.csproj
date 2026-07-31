@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Cast.Cli\Cast.Cli.csproj" />
+    <!-- Declared explicitly: Cast.Cli is an Exe, so its Cast.Core reference does not flow
+         transitively to referencing projects, and these tests use Cast.Core types directly. -->
+    <ProjectReference Include="..\..\src\Cast.Core\Cast.Core.csproj" />
   </ItemGroup>
 
 </Project>

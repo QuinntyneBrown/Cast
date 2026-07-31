@@ -48,7 +48,7 @@ dotnet test Cast.sln                                          # run all tests
 Run a single test (xUnit via `dotnet test --filter`):
 
 ```pwsh
-dotnet test --filter "FullyQualifiedName~Cast.Cli.Tests.ParticipantParserTests"
+dotnet test --filter "FullyQualifiedName~Cast.Core.Tests.ParticipantParserTests"
 dotnet test --filter "Name=Parse_BareName_DefaultsToParticipantKind"
 ```
 
@@ -69,29 +69,16 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   (`cast template --name X`), and `save`/`list`/`show`/`delete` are subcommands built inside the
   same class — the parent's `--name` is deliberately not `Required` so subcommand invocations
   aren't blocked, and each subcommand constructs its own `Option` instances.
-- `src/Cast.Cli/Services/` — focused, interface-backed services: kind catalog, participant and
-  message parsers, the shared `IDiagramSpecValidator` (duplicate-alias, message-endpoint, and
-  title/theme rules used by both `generate` and template saving), sample-flow generator, renderer
-  (`ISequenceDiagramRenderer`), writer (`IDiagramWriter`), the best-effort `IFileOpener`
-  (`NotepadFileOpener`: fire-and-forget `notepad.exe`, never throws, skips on non-Windows), and
-  the `IScaffoldService` orchestrator. The `ng` command adds its own set:
-  `IAngularServiceParser` (a comment/string-aware scanner that extracts a consumer and its injected
-  dependencies — no Node sidecar), `IAngularDiagramRenderer` (the narrated DI diagram),
-  `ISourceFileReader` (the read-side I/O boundary, mirroring `IDiagramWriter`), and the
-  `IAngularDiagramService` orchestrator. The comment/string/regex-aware scanning the TypeScript
-  parsers share lives in the internal `TypeScriptScanner` (sanitiser plus balanced-delimiter
-  helpers). The `calls` command adds `ITypeScriptCallGraphParser` (`TypeScriptCallGraphParser`: a
-  focused scanner that picks the primary class — or, for a class-less file, the exported functions —
-  builds a symbol table from fields/constructor-params/locals, and collects each member's outbound
-  calls, classifying them as self/collaborator/construction), `ICallGraphRenderer`
-  (`PlantUmlCallGraphRenderer`: one interaction per method), and the `ICallGraphService` orchestrator
-  (which owns the member-selection policy — `--method`/`--include-private`). The `style` command
-  adds `IPumlFileLocator` (file vs.
-  recursive folder discovery), `ISequenceDiagramDetector` (conservative is-this-a-sequence-diagram
-  classification), `ISequenceDiagramStyler` (the idempotent in-place restyle transform; shared
-  comment/note-aware line scanning lives in the internal `PlantUmlScanner`), `ITextFileEditor`
-  (the in-place read/write boundary that preserves the file's encoding and BOM), and the
-  `IStyleService` orchestrator. The `template` command adds `ITemplateStore`
+- `src/Cast.Core/` — the packable, dependency-free library. Its `Models` are the immutable diagram,
+  Angular dependency, call-graph, and styling contracts; `Services` contains the parser, validator,
+  renderer, detector, styler, and sample-flow APIs and implementations; `Diagnostics` contains
+  `DiagramFormatException`. The comment/string-aware TypeScript scanner and comment/note-aware
+  PlantUML scanner are internal implementation helpers.
+- `src/Cast.Cli/Services/` — CLI workflow orchestration and I/O boundaries. `IScaffoldService`,
+  `IAngularDiagramService`, and `ICallGraphService` combine Core parsing/rendering with source and
+  output adapters; `IStyleService` combines Core detection/styling with encoding-preserving file
+  editing. The best-effort `IFileOpener` launches Notepad on Windows. The template command adds
+  `ITemplateStore`
   (`FileSystemTemplateStore`: JSON persistence under `%APPDATA%\cast\templates` with
   whitelist-validated names — no traversal, no reserved device names) and the `ITemplateService`
   orchestrator (validates before persisting so a bad template can't be saved; rendering merges the
@@ -99,14 +86,8 @@ The CLI is wired through dependency injection. `Program.cs` is the composition r
   `IScaffoldService`). The `explorer` command adds `IFolderOpener` (`VsCodeFolderOpener`: launches
   `code <folder>` via ShellExecute; unlike `IFileOpener` a failed launch throws, because opening
   is the command's whole purpose) and the `IExplorerService` orchestrator.
-- `src/Cast.Cli/Models/` — immutable records (`Participant`, `Message`, `SequenceDiagram`,
-  `ScaffoldRequest`, `ParticipantKind`, `DiagramStyle`; `AngularService`, `AngularDependency`,
-  `AngularDiagramRequest`, `ConsumerKind`, `DependencyKind` for the `ng` command; `CallGraph`,
-  `CallGraphMethod`, `MethodCall`, `CallGraphSubjectKind`, `CallKind`, `MethodVisibility`, and
-  `CallGraphRequest` for the `calls` command; `StyleRequest`,
-  `StylerResult` for the `style` command; `DiagramTemplate` — an init-property record, the JSON
-  contract — and `RenderTemplateRequest` for the `template` command).
-- `src/Cast.Cli/Diagnostics/` — `DiagramFormatException` for user-facing input errors.
+- `src/Cast.Cli/Models/` — command/workflow request DTOs, the persisted `DiagramTemplate` JSON
+  contract, and the encoding-aware `TextFile` I/O model.
 
 Conventions: the generating commands (`generate`, `ng`, `template`) write a `.puml` file by
 default (`--stdout` prints the diagram to **stdout** instead) and then open it in Notepad on
@@ -125,6 +106,6 @@ declarations that already carry a color untouched.
 
 ## Tests
 
-`tests/Cast.Cli.Tests/` — xUnit (`xunit`, `Microsoft.NET.Test.Sdk`, `coverlet.collector`). The
-`Xunit` namespace is globally imported via a `<Using>` item, so test files don't need
-`using Xunit;`. One test class per production type under test.
+`tests/Cast.Core.Tests/` covers the reusable engine and includes architecture-boundary checks.
+`tests/Cast.Cli.Tests/` covers commands, workflows, persistence, filesystem adapters, and DI
+composition. Both use xUnit with one test class per production type under test.

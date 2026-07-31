@@ -34,8 +34,8 @@ If the build and tests pass, you're ready to make changes.
 
 2. **Make your change.** Keep it focused — one logical change per pull request.
 
-3. **Add or update tests.** New behaviour should be covered by tests in
-   `tests/Cast.Cli.Tests/`. Run them with:
+3. **Add or update tests.** Reusable engine behaviour belongs in `tests/Cast.Core.Tests/`;
+   command, workflow, and adapter behaviour belongs in `tests/Cast.Cli.Tests/`. Run them with:
 
    ```pwsh
    dotnet test

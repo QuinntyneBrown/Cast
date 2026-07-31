@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cast.Cli.Models;
 using Cast.Cli.Services;
+using Cast.Core.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 

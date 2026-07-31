@@ -8,6 +8,10 @@
 
 Cast turns command-line participants and messages into a PlantUML sequence diagram starter.
 
+The reusable parsing, validation, rendering, and styling engine is also available as the
+[`Cast.Core`](src/Cast.Core/README.md) .NET library for applications that need to generate
+diagrams without invoking the CLI.
+
 ## Requirements
 
 - [.NET SDK 8.0](https://dotnet.microsoft.com/download) or later (the tool targets `net8.0` and runs on the .NET 8 runtime and later)

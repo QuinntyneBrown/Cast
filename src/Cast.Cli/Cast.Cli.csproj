@@ -32,6 +32,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Cast.Core\Cast.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Ship the repo README as the package readme (shown on the nuget.org page). -->
     <None Include="../../README.md" Pack="true" PackagePath="\" />
   </ItemGroup>

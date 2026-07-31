@@ -7,8 +7,8 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Cast.Cli.Diagnostics;
 using Cast.Cli.Models;
+using Cast.Core.Diagnostics;
 
 namespace Cast.Cli.Services;
 

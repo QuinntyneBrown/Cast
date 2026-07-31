@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Cast.Cli.Commands;
 using Cast.Cli.Services;
+using Cast.Core.Services;
 
 namespace Cast.Cli.Tests;
 

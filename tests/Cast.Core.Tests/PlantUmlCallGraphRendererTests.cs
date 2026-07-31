@@ -1,0 +1,183 @@
+using Cast.Core.Models;
+using Cast.Core.Services;
+
+namespace Cast.Core.Tests;
+
+public sealed class PlantUmlCallGraphRendererTests
+{
+    private static PlantUmlCallGraphRenderer CreateRenderer() => new();
+
+    private static CallGraph OrderService() => new(
+        "OrderService",
+        CallGraphSubjectKind.Class,
+        [
+            new CallGraphMethod("placeOrder", "placeOrder(orderId)", MethodVisibility.Public, IsStatic: false, IsAsync: true,
+            [
+                new MethodCall("OrderService", "OrderService", CallKind.Self, "validate"),
+                new MethodCall("OrderRepository", "OrderRepository", CallKind.Collaborator, "save"),
+                new MethodCall("AuditEntry", "AuditEntry", CallKind.Construction, ""),
+            ]),
+            new CallGraphMethod("getTotal", "getTotal()", MethodVisibility.Public, IsStatic: false, IsAsync: false,
+            [
+                new MethodCall("OrderRepository", "OrderRepository", CallKind.Collaborator, "total"),
+            ]),
+        ]);
+
+    // Golden master: pins the full call-graph narrative — the user's reference scenario.
+    [Fact]
+    public void Render_ClassWithSelfCollaboratorAndConstruction_MatchesExactOutput()
+    {
+        string expected = string.Join("\n",
+            "@startuml",
+            "!pragma teoz true",
+            "skinparam defaultFontSize 10",
+            "title Call graph of OrderService",
+            "",
+            "actor \"Caller\\n(external code)\" as Caller #63BEF2",
+            "box #PHYSICAL",
+            "  box #AZURE",
+            "    participant \"OrderService\" as C0 #63BEF2",
+            "    participant \"OrderRepository\" as C1 #63BEF2",
+            "    participant \"AuditEntry\" as C2 #63BEF2",
+            "  end box",
+            "end box",
+            "",
+            "== placeOrder(orderId) ==",
+            "Caller -> C0 : placeOrder(orderId)",
+            "activate C0",
+            "C0 -> C0 : validate()",
+            "C0 -> C1 : save()",
+            "C0 -> C2 : «create»",
+            "deactivate C0",
+            "",
+            "== getTotal() ==",
+            "Caller -> C0 : getTotal()",
+            "activate C0",
+            "C0 -> C1 : total()",
+            "deactivate C0",
+            "@enduml") + "\n";
+
+        Assert.Equal(expected, CreateRenderer().Render(OrderService()));
+    }
+
+    [Fact]
+    public void Render_AlwaysWrapsInStartAndEnd_WithTrailingNewline_NoCarriageReturn()
+    {
+        string output = CreateRenderer().Render(OrderService());
+
+        Assert.StartsWith("@startuml\n", output);
+        Assert.EndsWith("@enduml\n", output);
+        Assert.DoesNotContain("\r", output);
+    }
+
+    [Fact]
+    public void Render_AlwaysEmitsTeozPragmaAndFontSize()
+    {
+        string output = CreateRenderer().Render(OrderService());
+
+        Assert.Contains("!pragma teoz true\n", output);
+        Assert.Contains("skinparam defaultFontSize 10\n", output);
+    }
+
+    [Fact]
+    public void Render_CallerActor_StaysOutsideTheBoxes()
+    {
+        string output = CreateRenderer().Render(OrderService());
+
+        int actor = output.IndexOf("actor \"Caller", StringComparison.Ordinal);
+        int box = output.IndexOf("box #PHYSICAL", StringComparison.Ordinal);
+        Assert.True(actor >= 0 && box > actor, "the Caller actor must be declared before the box opens");
+        Assert.DoesNotContain("    actor", output);
+    }
+
+    [Fact]
+    public void Render_CustomTitle_OverridesGeneratedTitle()
+    {
+        string output = CreateRenderer().Render(OrderService(), "My Calls");
+
+        Assert.Contains("title My Calls\n", output);
+        Assert.DoesNotContain("Call graph of OrderService", output);
+    }
+
+    [Fact]
+    public void Render_CustomStyle_UsesConfiguredBoxColors()
+    {
+        string output = CreateRenderer().Render(OrderService(), style: new DiagramStyle("#DeepSkyBlue", "#FFFFFF"));
+
+        Assert.Contains("box #DeepSkyBlue\n  box #FFFFFF\n", output);
+        Assert.DoesNotContain("#PHYSICAL", output);
+        Assert.DoesNotContain("#AZURE", output);
+    }
+
+    [Fact]
+    public void Render_Module_UsesModuleTitleAndBareSubject()
+    {
+        var graph = new CallGraph("pricing", CallGraphSubjectKind.Module,
+        [
+            new CallGraphMethod("computeTotal", "computeTotal(items)", MethodVisibility.Public, false, false, []),
+        ]);
+
+        string output = CreateRenderer().Render(graph);
+
+        Assert.Contains("title Call graph of pricing (module functions)\n", output);
+        Assert.Contains("participant \"pricing\" as C0", output);
+    }
+
+    [Fact]
+    public void Render_MethodWithNoCalls_ShowsNoOutboundCallsNote()
+    {
+        var graph = new CallGraph("Empty", CallGraphSubjectKind.Class,
+        [
+            new CallGraphMethod("noop", "noop()", MethodVisibility.Public, false, false, []),
+        ]);
+
+        string output = CreateRenderer().Render(graph);
+
+        Assert.Contains("note over C0\n  (no outbound calls)\nend note", output);
+    }
+
+    [Fact]
+    public void Render_CollaboratorNamedLikeSubject_FoldsOntoSubjectLifeline()
+    {
+        // A static call to the subject's own class (e.g. Service.create() inside Service) must not
+        // declare a second lifeline; it loops back onto C0.
+        var graph = new CallGraph("Service", CallGraphSubjectKind.Class,
+        [
+            new CallGraphMethod("run", "run()", MethodVisibility.Public, false, false,
+            [
+                new MethodCall("Service", "Service", CallKind.Collaborator, "create"),
+            ]),
+        ]);
+
+        string output = CreateRenderer().Render(graph);
+
+        Assert.Contains("C0 -> C0 : create()", output);
+        Assert.DoesNotContain("as C1", output);
+    }
+
+    [Fact]
+    public void Render_NoMethods_ProducesValidSkeleton()
+    {
+        // The service never hands the renderer an empty graph (the parser rejects one first), but the
+        // renderer must still produce well-formed output as a standalone unit.
+        var graph = new CallGraph("Empty", CallGraphSubjectKind.Class, []);
+
+        string output = CreateRenderer().Render(graph);
+
+        Assert.StartsWith("@startuml\n", output);
+        Assert.EndsWith("@enduml\n", output);
+        Assert.Contains("participant \"Empty\" as C0", output);
+        Assert.DoesNotContain("==", output); // no method dividers
+    }
+
+    [Fact]
+    public void Render_RepeatedCollaboratorAcrossMethods_DeclaredOnce()
+    {
+        string output = CreateRenderer().Render(OrderService());
+
+        int first = output.IndexOf("as C1 ", StringComparison.Ordinal);
+        int last = output.LastIndexOf("as C1 ", StringComparison.Ordinal);
+        Assert.True(first >= 0);
+        Assert.Equal(first, last); // OrderRepository (C1) is declared exactly once
+    }
+}

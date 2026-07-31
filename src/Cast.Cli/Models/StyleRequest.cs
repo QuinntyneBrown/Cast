@@ -1,3 +1,5 @@
+using Cast.Core.Models;
+
 namespace Cast.Cli.Models;
 
 /// <summary>

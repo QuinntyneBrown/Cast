@@ -2,6 +2,7 @@ using System.CommandLine;
 using Cast.Cli.Hosting;
 using Cast.Cli.Models;
 using Cast.Cli.Services;
+using Cast.Core.Models;
 
 namespace Cast.Cli.Commands;
 

@@ -12,6 +12,6 @@ namespace Cast.Cli.Services;
 public interface IPumlFileLocator
 {
     /// <summary>Returns the PlantUML files designated by <paramref name="path"/>, in a deterministic order.</summary>
-    /// <exception cref="Diagnostics.DiagramFormatException"><paramref name="path"/> does not exist or is invalid.</exception>
+    /// <exception cref="Cast.Core.Diagnostics.DiagramFormatException"><paramref name="path"/> does not exist or is invalid.</exception>
     IReadOnlyList<string> Locate(string path);
 }

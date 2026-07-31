@@ -9,7 +9,7 @@ namespace Cast.Cli.Services;
 /// The persistence boundary for named diagram templates — the single abstraction that knows
 /// templates live as files. Filesystem failures surface as <see cref="System.IO.IOException"/>;
 /// user-input problems (an invalid template name, a corrupt template file) surface as
-/// <see cref="Diagnostics.DiagramFormatException"/>. Implementations do not log; the
+/// <see cref="Cast.Core.Diagnostics.DiagramFormatException"/>. Implementations do not log; the
 /// orchestrator does.
 /// </summary>
 public interface ITemplateStore

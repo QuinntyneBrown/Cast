@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Cast.Cli.Diagnostics;
+using Cast.Core.Diagnostics;
 using Cast.Cli.Services;
 
 namespace Cast.Cli.Tests;

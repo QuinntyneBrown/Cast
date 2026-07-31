@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Cast.Cli.Diagnostics;
+using Cast.Core.Diagnostics;
 
 namespace Cast.Cli.Services;
 

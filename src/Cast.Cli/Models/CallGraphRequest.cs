@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cast.Core.Models;
 
 namespace Cast.Cli.Models;
 

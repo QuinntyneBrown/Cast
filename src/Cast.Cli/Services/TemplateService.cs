@@ -4,8 +4,10 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Cast.Cli.Diagnostics;
 using Cast.Cli.Models;
+using Cast.Core.Diagnostics;
+using Cast.Core.Models;
+using Cast.Core.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Cast.Cli.Services;

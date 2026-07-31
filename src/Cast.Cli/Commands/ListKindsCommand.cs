@@ -1,7 +1,7 @@
 using System;
 using System.CommandLine;
 using System.IO;
-using Cast.Cli.Services;
+using Cast.Core.Services;
 
 namespace Cast.Cli.Commands;
 

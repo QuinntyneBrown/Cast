@@ -5,6 +5,7 @@ using System.CommandLine;
 using Cast.Cli.Commands;
 using Cast.Cli.Models;
 using Cast.Cli.Services;
+using Cast.Core.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cast.Cli.Tests;
